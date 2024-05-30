@@ -1,10 +1,5 @@
 package nyub.orthogit.git
 
-case class ObjectPath[PathElement](
-    val path: Seq[PathElement],
-    val name: PathElement
-)
-
 case class StagedObject[PathElement, Obj](
     val path: ObjectPath[PathElement],
     val obj: Obj

@@ -58,6 +58,37 @@ trait Git[Obj, Id, Label, PathElement]:
 
     def branch(name: Label, id: CommitId): Unit = labelStorage.set(name, id)
 
+    def get(objectPath: ObjectPath[PathElement]): Option[Obj] =
+        get(getHeadTree, objectPath)
+
+    private def get(
+        tree: StoredObjects.Tree,
+        objectPath: ObjectPath[PathElement]
+    ): Option[Obj] =
+        if objectPath.isLeaf then
+            tree.childrenIds
+                .get(objectPath.name)
+                .flatMap(objectStorage.get)
+                .collect:
+                    case StoredObjects.Blob(obj) => obj
+        else
+            tree.childrenIds
+                .get(objectPath.head)
+                .flatMap(objectStorage.get)
+                .collect:
+                    case t: StoredObjects.Tree => t
+                .flatMap(t => get(t, objectPath.tail))
+
+    private def getHeadTree: StoredObjects.Tree =
+        objectStorage
+            .get(head.get)
+            .collect:
+                case StoredObjects.Commit(_, t) => t
+            .flatMap(objectStorage.get)
+            .collect:
+                case t: StoredObjects.Tree => t
+            .getOrElse(?!!)
+
     private def updateHead(commitId: CommitId): Unit = headPointer = Some(
       commitId
     )
@@ -65,5 +96,9 @@ trait Git[Obj, Id, Label, PathElement]:
     private def updateBranch(commitId: CommitId): Unit = currentBranch match
         case Some(label) => labelStorage.set(label, commitId)
         case None        => ()
+
+    private def ?!! = throw IllegalStateException(
+      "Panic, reached illegal state"
+    )
 
 end Git

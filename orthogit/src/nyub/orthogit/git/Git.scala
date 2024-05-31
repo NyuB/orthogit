@@ -21,8 +21,8 @@ trait Git[Obj, Id, Label, PathElement]:
 
     private def initStagingArea: StagingArea[PathElement, Obj, Id] =
         val root = headTreeId
-            .map(id => StagingTree.Node(getStagingChildren(id)))
-            .getOrElse(StagingTree.emptyRoot)
+            .map(StagingTree.StableNode[PathElement, Obj, Id](_))
+            .getOrElse(StagingTree.emptyRoot[PathElement, Obj, Id])
         StagingArea(root, getStagingChildren)
 
     def add(obj: StagedObject[PathElement, Obj]) = stagingArea.update(obj)
@@ -37,12 +37,12 @@ trait Git[Obj, Id, Label, PathElement]:
         val id = objectStorage.store(commitObject)
         head.set(Some(id))
         updateBranch(id)
-        stagingArea.reset(treeId)
+        stagingArea.reset(StagingTree.StableNode(treeId))
         id
 
     def checkout(id: CommitId): Unit = objectStorage.get(id) match
         case Some(StoredObjects.Commit(_, treeId)) =>
-            stagingArea.reset(treeId)
+            stagingArea.reset(StagingTree.StableNode(treeId))
             currentBranch.unset() // detached HEAD
             head.set(Some(id))
         case _ => ???

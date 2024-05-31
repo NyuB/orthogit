@@ -6,6 +6,28 @@ import nyub.assert.AssertExtensions
 import org.scalacheck.Arbitrary
 import java.nio.charset.StandardCharsets
 import scala.collection.immutable.ArraySeq
+import java.nio.file.Files
+import java.nio.file.Paths
+
+class GitObjectEncodingTests extends munit.FunSuite with AssertExtensions:
+    test("Decode blob object"):
+        val content = Files.readAllBytes(
+          Paths.get("orthogit/test/resources/blob_obj")
+        )
+        val decoded =
+            GitObjectEncoding.decode(content.bytes)
+        val expected = Files
+            .readAllBytes(Paths.get("orthogit/test/resources/blob_obj_content"))
+            .bytes
+        decoded isEqualTo GitObjectEncoding.ObjectFormat.Blob(
+          expected
+        )
+
+    extension (arr: Array[Byte])
+        private def bytes: Seq[Byte] = ArraySeq.unsafeWrapArray(arr)
+
+    extension (s: String) def bytes: Seq[Byte] = s.getBytes().bytes
+end GitObjectEncodingTests
 
 class GitObjectEncodingProperties
     extends munit.ScalaCheckSuite

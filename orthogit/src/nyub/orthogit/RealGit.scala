@@ -12,9 +12,11 @@ import nyub.orthogit.git.StoredObjects.Blob
 import nyub.orthogit.git.StoredObjects.Tree
 import nyub.orthogit.git.StoredObjects.Commit
 import nyub.orthogit.id.Sha1
-import java.util.zip.Deflater
-import java.nio.ByteBuffer
 import java.io.FileOutputStream
+import java.io.FileInputStream
+import java.util.zip.InflaterInputStream
+import java.util.zip.DeflaterOutputStream
+import java.io.ByteArrayOutputStream
 
 type FileObj = Seq[String]
 type PathElement = String
@@ -25,7 +27,7 @@ val stringSha1 = Sha1.deriveSha1Identifier[String]
 class RealGitObjectStorage(private val gitRoot: Path)
     extends ObjectStorage[StoredObjects[FileObj, Id, PathElement], Id]:
     override def get(id: Id): Option[StoredObjects[FileObj, Id, PathElement]] =
-        ???
+        readObject(id).map(o => StoredObjects.Blob(Seq(o)))
 
     override def store(obj: StoredObjects[FileObj, Id, PathElement]): Id =
         obj match
@@ -41,11 +43,23 @@ class RealGitObjectStorage(private val gitRoot: Path)
                   s"commit ${parentId.getOrElse("none")} ${treeId.hex}"
                 )
 
+    private def readObject(id: Id): Option[String] =
+        val hex = id.hex
+        val path =
+            gitRoot.resolve("objects", hex.substring(0, 2), hex.substring(2))
+        val isBuffer = Array.ofDim[Byte](512)
+        val res = ByteArrayOutputStream()
+        FileInputStream(path.toFile()).use: is =>
+            InflaterInputStream(is).use: inflater =>
+                var read = 0
+                while read != -1 do
+                    read = inflater.read(isBuffer, 0, isBuffer.length)
+                    if read > 0 then res.write(isBuffer, 0, read)
+        Some(String(res.toByteArray()))
+
     private def writeObject(content: String): Id =
         val id = stringSha1.id(content)
         val hexId = id.hex
-
-        val deflater = java.util.zip.Deflater()
         val outPut = gitRoot.resolve(
           "objects",
           hexId.substring(0, 2),
@@ -53,18 +67,9 @@ class RealGitObjectStorage(private val gitRoot: Path)
         )
         Files.createDirectories(outPut.getParent())
         FileOutputStream(outPut.toFile()).use: os =>
-            val byteBuffer =
-                ByteBuffer.allocate(2048)
-
-            deflater.setInput(content.getBytes())
-            deflater.finish()
-            while deflater.getBytesRead() < content.length() do
-                val written = deflater.deflate(byteBuffer.clear())
-                os.write(byteBuffer.array(), 0, written)
-
-            deflater.end()
-            os.flush()
-            id
+            DeflaterOutputStream(os).use: deflater =>
+                deflater.write(content.getBytes())
+        id
 
     extension [T <: AutoCloseable](resource: T)
         private def use[R](exec: T => R): R =

@@ -71,13 +71,6 @@ class RealGitObjectStorage(private val gitRoot: Path)
                 deflater.write(content.getBytes())
         id
 
-    extension [T <: AutoCloseable](resource: T)
-        private def use[R](exec: T => R): R =
-            try
-                exec(resource)
-            finally
-                resource.close()
-
 class RealGitLabelStorage(private val gitRoot: Path)
     extends LabelStorage[String, Id]:
     private val labelsRoot = gitRoot.resolve("refs", "heads")

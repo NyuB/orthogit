@@ -1,22 +1,25 @@
 package nyub.orthogit.experiment
 
 import java.nio.file.Paths
-import nyub.orthogit.git.StoredObjects
+import java.nio.file.Files
+import java.nio.charset.StandardCharsets
 
-@main def main() =
-    val storage = RealGitObjectStorage(Paths.get(".test"))
-    val id = storage.store(
-      StoredObjects.Blob(Seq("Youpi", "abc"))
-    )
-    println(s"Stored object with id ${id.hex}")
-    // Stored object with id 22289d8940255b2eacb8560a5667f5d77802a3f7
-    val back = storage.get(id)
-
-    println(s"Read back:\n'''\n${back
-            .map(_.asInstanceOf[StoredObjects.Blob[Seq[String], ?, ?]].obj.mkString)
-            .getOrElse("None")}\n'''")
-    // Read back:
-    // '''
-    // blob 9Youpi
-    // abc
-    // '''
+@main def main(args: String*): Unit =
+    val cmd = args(0)
+    if cmd == "unzip" then
+        val origin = args(1)
+        val content = String(
+          Zlib.decompressFile(Paths.get(origin)).toArray,
+          StandardCharsets.UTF_8
+        )
+        if args.length < 3 then println(content)
+        else
+            val target = args(2)
+            println(
+              Files.writeString(
+                Paths.get(target),
+                content,
+                StandardCharsets.UTF_8
+              )
+            )
+    else println(s"Invalid command ${cmd}, supported commands are {unzip}")

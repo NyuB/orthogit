@@ -37,6 +37,29 @@ class GitSuite extends munit.FunSuite with AssertExtensions:
         git.get(pathA) isEqualTo Some(a)
         git.get(pathB) isEqualTo Some(b)
 
+    test("Add two objects in two successive commits, get each object"):
+        val git = TestGit()
+        val pathA = ObjectPath(Seq.empty, "A.txt")
+        val pathB = ObjectPath(Seq.empty, "B.txt")
+        val a = "AAA"
+        val b = "BBB"
+
+        git.add(StagedObject(pathA, a))
+        git.commit()
+        git.add(StagedObject(pathB, b))
+        git.commit()
+
+        git.get(pathA) isEqualTo Some(a)
+        git.get(pathB) isEqualTo Some(b)
+
+    test("Staging area is empty after commit"):
+        val git = TestGit()
+        val pathA = ObjectPath(Seq.empty, "A.txt")
+        val a = "AAA"
+        git.add(StagedObject(pathA, a))
+        git.commit()
+        git.staged isEqualTo Seq.empty[ObjectPath[String]]
+
     test(
       "Commit one object, update it and commit, checkout each commit and get object"
     ):

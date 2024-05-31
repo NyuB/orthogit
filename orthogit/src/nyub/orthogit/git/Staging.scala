@@ -17,6 +17,8 @@ final class StagingArea[PathElement, Obj, Id](
     def clean(): Unit =
         root = StagingTree.Node(Map.empty)
 
+    def staged: Seq[ObjectPath[PathElement]] = root.leaves
+
 sealed trait StagingTree[PathElement, Obj, Id]:
     def store(storeObj: Obj => Id, storeTree: Map[PathElement, Id] => Id): Id
 
@@ -78,3 +80,19 @@ object StagingTree:
                             emptyRoot[PathElement, Obj, Id].updated(next)
                           )
                         )
+
+        def leaves: Seq[ObjectPath[PathElement]] =
+            this.children
+                .flatMap: (path, t) =>
+                    leaves(ObjectPath(Seq.empty, path), t)
+                .toSeq
+
+        private def leaves(
+            prev: ObjectPath[PathElement],
+            node: StagingTree[PathElement, Obj, Id]
+        ): Seq[ObjectPath[PathElement]] = node match
+            case Node(c) =>
+                c.flatMap: (k, v) =>
+                    leaves(ObjectPath(prev.path :+ prev.name, k), v)
+                .toSeq
+            case Leaf(_) => Seq(prev)

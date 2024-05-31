@@ -58,6 +58,8 @@ trait Git[Obj, Id, Label, PathElement]:
     def get(objectPath: ObjectPath[PathElement]): Option[Obj] =
         get(getHeadTree, objectPath)
 
+    def staged: Seq[ObjectPath[PathElement]] = stagingArea.staged
+
     private def get(
         tree: StoredObjects.Tree[Obj, Id, PathElement],
         objectPath: ObjectPath[PathElement]

@@ -12,16 +12,16 @@ trait Git[Obj, Id, Label, PathElement]:
         : ObjectStorage[StoredObjects[Obj, Id, PathElement], Id]
 
     protected def labelStorage: LabelStorage[Label, Id]
+
+    protected def head: Head[CommitId]
+
+    protected def currentBranch: Head[Label]
+
     final protected val stagingArea = StagingArea[PathElement, Obj, Id](
       StagingTree.emptyRoot[PathElement, Obj, Id]
     )
 
-    private var headPointer: Option[Id] = None
-    private var currentBranch: Option[Label] = None
-
     def add(obj: StagedObject[PathElement, Obj]) = stagingArea.update(obj)
-
-    def head: Option[CommitId] = headPointer
 
     def commit(): CommitId =
         val treeId = stagingArea.root.store(
@@ -29,17 +29,17 @@ trait Git[Obj, Id, Label, PathElement]:
           t => objectStorage.store(StoredObjects.Tree(t))
         )
         val commitObject =
-            StoredObjects.Commit[Obj, Id, PathElement](headPointer, treeId)
+            StoredObjects.Commit[Obj, Id, PathElement](head.get, treeId)
         val id = objectStorage.store(commitObject)
-        updateHead(id)
+        head.set(Some(id))
         updateBranch(id)
         id
 
     def checkout(id: Id): Unit = objectStorage.get(id) match
         case Some(StoredObjects.Commit(_, _)) =>
             stagingArea.clean()
-            currentBranch = None // detached HEAD
-            headPointer = Some(id)
+            currentBranch.unset() // detached HEAD
+            head.set(Some(id))
         case _ => ???
 
     def checkoutBranch(label: Label): CommitId =
@@ -47,8 +47,8 @@ trait Git[Obj, Id, Label, PathElement]:
             case Some(id) =>
                 objectStorage.get(id) match
                     case Some(StoredObjects.Commit(_, _)) =>
-                        headPointer = Some(id)
-                        currentBranch = Some(label)
+                        head.set(Some(id))
+                        currentBranch.set(Some(label))
                         id
                     case _ => ???
             case None => ???
@@ -78,7 +78,7 @@ trait Git[Obj, Id, Label, PathElement]:
 
     private def getHeadTree: StoredObjects.Tree[Obj, Id, PathElement] =
         objectStorage
-            .get(head.get)
+            .get(head.get.get)
             .collect:
                 case c: StoredObjects.Commit[Obj, Id, PathElement] => c.treeId
             .flatMap(objectStorage.get)
@@ -86,11 +86,7 @@ trait Git[Obj, Id, Label, PathElement]:
                 case t: StoredObjects.Tree[_, _, _] => t
             .getOrElse(?!!)
 
-    private def updateHead(commitId: CommitId): Unit = headPointer = Some(
-      commitId
-    )
-
-    private def updateBranch(commitId: CommitId): Unit = currentBranch match
+    private def updateBranch(commitId: CommitId): Unit = currentBranch.get match
         case Some(label) => labelStorage.set(label, commitId)
         case None        => ()
 
@@ -112,3 +108,8 @@ object StoredObjects:
         val parentId: Option[Id],
         val treeId: Id
     ) extends StoredObjects[Obj, Id, PathElement]
+
+trait Head[Id]:
+    def get: Option[Id]
+    def set(id: Option[Id]): Unit
+    final def unset(): Unit = set(None)

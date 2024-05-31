@@ -21,14 +21,14 @@ trait Git[Obj, Id, Label, PathElement]:
 
     private def initStagingArea: StagingArea[PathElement, Obj, Id] =
         val root = headTreeId
-            .map(StagingTree.StableNode[PathElement, Obj, Id](_))
+            .map(StagingTree.stableTree[PathElement, Obj, Id])
             .getOrElse(StagingTree.emptyRoot[PathElement, Obj, Id])
         StagingArea(root, getStagingChildren)
 
     def add(obj: StagedObject[PathElement, Obj]) = stagingArea.update(obj)
 
     def commit(): CommitId =
-        val treeId = stagingArea.root.store(
+        val treeId = stagingArea.synchronize(
           o => objectStorage.store(StoredObjects.Blob(o)),
           t => objectStorage.store(StoredObjects.Tree(t))
         )
@@ -37,12 +37,12 @@ trait Git[Obj, Id, Label, PathElement]:
         val id = objectStorage.store(commitObject)
         head.set(Some(id))
         updateBranch(id)
-        stagingArea.reset(StagingTree.StableNode(treeId))
+        stagingArea.reset(StagingTree.stableTree(treeId))
         id
 
     def checkout(id: CommitId): Unit = objectStorage.get(id) match
         case Some(StoredObjects.Commit(_, treeId)) =>
-            stagingArea.reset(StagingTree.StableNode(treeId))
+            stagingArea.reset(StagingTree.stableTree(treeId))
             currentBranch.unset() // detached HEAD
             head.set(Some(id))
         case _ => ???
@@ -118,12 +118,12 @@ trait Git[Obj, Id, Label, PathElement]:
                                 .collect:
                                     case StoredObjects.Tree(_) =>
                                         StagingTree
-                                            .StableNode[PathElement, Obj, Id](
+                                            .stableTree[PathElement, Obj, Id](
                                               cid
                                             )
                                     case StoredObjects.Blob(_) =>
                                         StagingTree
-                                            .StableLeaf[PathElement, Obj, Id](
+                                            .stableObject[PathElement, Obj, Id](
                                               cid
                                             )
                                 .getOrElse(?!!)

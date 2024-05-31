@@ -8,8 +8,8 @@ case class StagedObject[PathElement, Obj](
 type GetStableChildren[PathElement, Obj, Id] =
     Id => Map[PathElement, StagingTree.StableTree[PathElement, Obj, Id]]
 
-final class StagingArea[PathElement, Obj, Id](
-    var root: StagingTree.StagingNode[PathElement, Obj, Id],
+final private class StagingArea[PathElement, Obj, Id](
+    private var root: StagingTree.StagingNode[PathElement, Obj, Id],
     val getStableChildren: GetStableChildren[PathElement, Obj, Id]
 ):
     def update(so: StagedObject[PathElement, Obj]): Unit =
@@ -23,12 +23,26 @@ final class StagingArea[PathElement, Obj, Id](
 
     def staged: Seq[ObjectPath[PathElement]] = root.stagedLeaves
 
-sealed trait StagingTree[PathElement, Obj, Id]:
+    def synchronize(
+        storeObj: Obj => Id,
+        storeTree: Map[PathElement, Id] => Id
+    ): Id =
+        root.store(storeObj, storeTree)
+
+sealed private trait StagingTree[PathElement, Obj, Id]:
     def store(storeObj: Obj => Id, storeTree: Map[PathElement, Id] => Id): Id
 
-object StagingTree:
+private object StagingTree:
     def emptyRoot[PathElement, Obj, Id]: Node[PathElement, Obj, Id] =
         Node[PathElement, Obj, Id](Map.empty)
+
+    def stableTree[PathElement, Obj, Id](
+        id: Id
+    ): StableNode[PathElement, Obj, Id] = StableNode(id)
+
+    def stableObject[PathElement, Obj, Id](
+        id: Id
+    ): StableLeaf[PathElement, Obj, Id] = StableLeaf(id)
 
     sealed trait StagingNode[PathElement, Obj, Id]
         extends StagingTree[PathElement, Obj, Id]:
@@ -46,11 +60,13 @@ object StagingTree:
             storeTree: Map[PathElement, Id] => Id
         ): Id = id
 
-    case class StableLeaf[PathElement, Obj, Id](override val id: Id)
-        extends StableTree[PathElement, Obj, Id]
+    case class StableLeaf[PathElement, Obj, Id] private[StagingTree] (
+        override val id: Id
+    ) extends StableTree[PathElement, Obj, Id]
 
-    case class StableNode[PathElement, Obj, Id](override val id: Id)
-        extends StableTree[PathElement, Obj, Id]
+    case class StableNode[PathElement, Obj, Id] private[StagingTree] (
+        override val id: Id
+    ) extends StableTree[PathElement, Obj, Id]
         with StagingNode[PathElement, Obj, Id]:
         override def toNode(
             getStableChildren: GetStableChildren[PathElement, Obj, Id]
@@ -62,7 +78,7 @@ object StagingTree:
     sealed trait StagedTree[PathElement, Obj, Id]
         extends StagingTree[PathElement, Obj, Id]
 
-    case class Leaf[PathElement, Obj, Id](val obj: Obj)
+    case class Leaf[PathElement, Obj, Id] private[StagingTree] (val obj: Obj)
         extends StagedTree[PathElement, Obj, Id]:
         override def store(
             storeObj: Obj => Id,
@@ -70,7 +86,7 @@ object StagingTree:
         ): Id =
             storeObj(obj)
 
-    case class Node[PathElement, Obj, Id](
+    case class Node[PathElement, Obj, Id] private[StagingTree] (
         val children: Map[PathElement, StagingTree[PathElement, Obj, Id]]
     ) extends StagedTree[PathElement, Obj, Id]
         with StagingNode[PathElement, Obj, Id]:
@@ -174,3 +190,5 @@ object StagingTree:
                             leaves(ObjectPath(prev.path :+ prev.name, path), t)
                 .toSeq
             case Leaf(_) => Seq(prev)
+
+end StagingTree

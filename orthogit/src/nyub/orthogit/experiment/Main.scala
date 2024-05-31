@@ -1,4 +1,4 @@
-package nyub.orthogit
+package nyub.orthogit.experiment
 
 import java.nio.file.Paths
 import nyub.orthogit.git.StoredObjects

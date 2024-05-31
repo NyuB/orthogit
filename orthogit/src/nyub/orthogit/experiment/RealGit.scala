@@ -1,4 +1,4 @@
-package nyub.orthogit
+package nyub.orthogit.experiment
 
 import nyub.orthogit.id.Sha1.{ofHex, Sha1Id}
 import nyub.orthogit.storage.LabelStorage

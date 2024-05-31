@@ -16,6 +16,10 @@ class Sha1Suite extends munit.FunSuite with AssertExtensions:
             .id("blob 16\u0000what is up, doc?")
             .hex isEqualTo "bd9dbf5aae1a3862dd1526723246b20206e5fc37"
 
+    test("ofHex(hex) is identity"):
+        val id = stringSha1.id("Blob")
+        Sha1.ofHex(id.hex) isEqualTo id
+
     test("(implementation detail) ArraySeq equality"):
         ArraySeq.unsafeWrapArray(Array(1, 2, 3)) isEqualTo ArraySeq
             .unsafeWrapArray(Array(1, 2, 3))

@@ -33,6 +33,7 @@ trait Git[Obj, Id, Label, PathElement]:
         val id = objectStorage.store(commitObject)
         head.set(Some(id))
         updateBranch(id)
+        stagingArea.clean()
         id
 
     def checkout(id: CommitId): Unit = objectStorage.get(id) match

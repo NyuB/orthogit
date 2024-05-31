@@ -1,11 +1,16 @@
 package nyub.orthogit.git
 
 import nyub.orthogit.storage.{LabelStorage, ObjectStorage}
+import nyub.orthogit.git.StoredObjects.Blob
+import nyub.orthogit.git.StoredObjects.Tree
+import nyub.orthogit.git.StoredObjects.Commit
 
 trait Git[Obj, Id, Label, PathElement]:
     opaque type CommitId = Id
 
-    protected def objectStorage: ObjectStorage[StoredObjects, Id]
+    protected def objectStorage
+        : ObjectStorage[StoredObjects[Obj, Id, PathElement], Id]
+
     protected def labelStorage: LabelStorage[Label, Id]
     final protected val stagingArea = StagingArea[PathElement, Obj, Id](
       StagingTree.emptyRoot[PathElement, Obj, Id]
@@ -13,15 +18,6 @@ trait Git[Obj, Id, Label, PathElement]:
 
     private var headPointer: Option[Id] = None
     private var currentBranch: Option[Label] = None
-
-    sealed trait StoredObjects
-    object StoredObjects:
-        case class Blob(val obj: Obj) extends StoredObjects
-        case class Tree(val childrenIds: Map[PathElement, Id])
-            extends StoredObjects
-
-        case class Commit(val parentId: Option[Id], val treeId: Id)
-            extends StoredObjects
 
     def add(obj: StagedObject[PathElement, Obj]) = stagingArea.update(obj)
 
@@ -32,7 +28,8 @@ trait Git[Obj, Id, Label, PathElement]:
           o => objectStorage.store(StoredObjects.Blob(o)),
           t => objectStorage.store(StoredObjects.Tree(t))
         )
-        val commitObject = StoredObjects.Commit(headPointer, treeId)
+        val commitObject =
+            StoredObjects.Commit[Obj, Id, PathElement](headPointer, treeId)
         val id = objectStorage.store(commitObject)
         updateHead(id)
         updateBranch(id)
@@ -62,7 +59,7 @@ trait Git[Obj, Id, Label, PathElement]:
         get(getHeadTree, objectPath)
 
     private def get(
-        tree: StoredObjects.Tree,
+        tree: StoredObjects.Tree[Obj, Id, PathElement],
         objectPath: ObjectPath[PathElement]
     ): Option[Obj] =
         if objectPath.isLeaf then
@@ -76,17 +73,17 @@ trait Git[Obj, Id, Label, PathElement]:
                 .get(objectPath.head)
                 .flatMap(objectStorage.get)
                 .collect:
-                    case t: StoredObjects.Tree => t
+                    case t: StoredObjects.Tree[Obj, Id, PathElement] => t
                 .flatMap(t => get(t, objectPath.tail))
 
-    private def getHeadTree: StoredObjects.Tree =
+    private def getHeadTree: StoredObjects.Tree[Obj, Id, PathElement] =
         objectStorage
             .get(head.get)
             .collect:
-                case StoredObjects.Commit(_, t) => t
+                case c: StoredObjects.Commit[Obj, Id, PathElement] => c.treeId
             .flatMap(objectStorage.get)
             .collect:
-                case t: StoredObjects.Tree => t
+                case t: StoredObjects.Tree[_, _, _] => t
             .getOrElse(?!!)
 
     private def updateHead(commitId: CommitId): Unit = headPointer = Some(
@@ -102,3 +99,16 @@ trait Git[Obj, Id, Label, PathElement]:
     )
 
 end Git
+
+sealed trait StoredObjects[Obj, Id, PathElement]
+object StoredObjects:
+    case class Blob[Obj, Id, PathElement](val obj: Obj)
+        extends StoredObjects[Obj, Id, PathElement]
+
+    case class Tree[Obj, Id, PathElement](val childrenIds: Map[PathElement, Id])
+        extends StoredObjects[Obj, Id, PathElement]
+
+    case class Commit[Obj, Id, PathElement](
+        val parentId: Option[Id],
+        val treeId: Id
+    ) extends StoredObjects[Obj, Id, PathElement]

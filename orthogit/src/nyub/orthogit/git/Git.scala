@@ -13,7 +13,7 @@ trait Git[Obj, Id, Label, PathElement]:
 
     protected def labelStorage: LabelStorage[Label, Id]
 
-    protected def head: Head[CommitId]
+    protected def head: Head[Id]
 
     protected def currentBranch: Head[Label]
 
@@ -35,7 +35,7 @@ trait Git[Obj, Id, Label, PathElement]:
         updateBranch(id)
         id
 
-    def checkout(id: Id): Unit = objectStorage.get(id) match
+    def checkout(id: CommitId): Unit = objectStorage.get(id) match
         case Some(StoredObjects.Commit(_, _)) =>
             stagingArea.clean()
             currentBranch.unset() // detached HEAD

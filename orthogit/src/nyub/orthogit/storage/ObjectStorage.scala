@@ -15,3 +15,8 @@ object ObjectStorage:
             val id = identifier.id(obj)
             map.update(id, obj)
             id
+
+    object InMemory:
+        def apply[Obj, Id](using Identifier[Obj, Id])() = new InMemory(
+          scala.collection.mutable.Map.empty
+        )

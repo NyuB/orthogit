@@ -17,9 +17,13 @@ trait Git[Obj, Id, Label, PathElement]:
 
     protected def currentBranch: Head[Label]
 
-    final protected val stagingArea = StagingArea[PathElement, Obj, Id](
-      StagingTree.emptyRoot[PathElement, Obj, Id]
-    )
+    final private lazy val stagingArea = initStagingArea
+
+    private def initStagingArea: StagingArea[PathElement, Obj, Id] =
+        val root = headTreeId
+            .map(id => StagingTree.Node(getStagingChildren(id)))
+            .getOrElse(StagingTree.emptyRoot)
+        StagingArea(root, getStagingChildren)
 
     def add(obj: StagedObject[PathElement, Obj]) = stagingArea.update(obj)
 
@@ -33,12 +37,12 @@ trait Git[Obj, Id, Label, PathElement]:
         val id = objectStorage.store(commitObject)
         head.set(Some(id))
         updateBranch(id)
-        stagingArea.clean()
+        stagingArea.reset(treeId)
         id
 
     def checkout(id: CommitId): Unit = objectStorage.get(id) match
-        case Some(StoredObjects.Commit(_, _)) =>
-            stagingArea.clean()
+        case Some(StoredObjects.Commit(_, treeId)) =>
+            stagingArea.reset(treeId)
             currentBranch.unset() // detached HEAD
             head.set(Some(id))
         case _ => ???
@@ -79,11 +83,14 @@ trait Git[Obj, Id, Label, PathElement]:
                     case t: StoredObjects.Tree[Obj, Id, PathElement] => t
                 .flatMap(t => get(t, objectPath.tail))
 
-    private def getHeadTree: StoredObjects.Tree[Obj, Id, PathElement] =
-        objectStorage
-            .get(head.get.get)
+    private def headTreeId: Option[Id] =
+        head.get
+            .flatMap(objectStorage.get)
             .collect:
                 case c: StoredObjects.Commit[Obj, Id, PathElement] => c.treeId
+
+    private def getHeadTree: StoredObjects.Tree[Obj, Id, PathElement] =
+        headTreeId
             .flatMap(objectStorage.get)
             .collect:
                 case t: StoredObjects.Tree[_, _, _] => t
@@ -96,6 +103,32 @@ trait Git[Obj, Id, Label, PathElement]:
     private def ?!! = throw IllegalStateException(
       "Panic, reached illegal state"
     )
+
+    private def getStagingChildren(
+        id: Id
+    ): Map[PathElement, StagingTree.StableTree[PathElement, Obj, Id]] =
+        objectStorage
+            .get(id)
+            .collect:
+                case StoredObjects.Tree(c) =>
+                    c.view
+                        .mapValues: cid =>
+                            objectStorage
+                                .get(cid)
+                                .collect:
+                                    case StoredObjects.Tree(_) =>
+                                        StagingTree
+                                            .StableNode[PathElement, Obj, Id](
+                                              cid
+                                            )
+                                    case StoredObjects.Blob(_) =>
+                                        StagingTree
+                                            .StableLeaf[PathElement, Obj, Id](
+                                              cid
+                                            )
+                                .getOrElse(?!!)
+                        .toMap
+            .getOrElse(?!!)
 
 end Git
 

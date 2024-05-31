@@ -10,6 +10,7 @@ trait SharedConfiguration extends ScalaModule {
     override def scalacOptions: T[Seq[String]] =
         Seq(
           "-deprecation",
+          "-language:strictEquality",
           "-Werror",
           "-Wimplausible-patterns",
           "-Wnonunit-statement",

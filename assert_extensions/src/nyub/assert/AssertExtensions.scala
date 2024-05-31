@@ -3,11 +3,13 @@ package nyub.assert
 import java.nio.file.{Files, Path}
 trait AssertExtensions extends munit.Assertions:
     extension [T](t: T)
-        infix def isEqualTo(other: T): Unit =
+        infix def isEqualTo[U <: T](other: U)(using CanEqual[T, U]): Unit =
             assertEquals(t, other)
 
     extension [T](l: Iterable[T])
-        infix def containsExactlyInAnyOrder(expected: Iterable[T]): Unit =
+        infix def containsExactlyInAnyOrder(expected: Iterable[T])(using
+            CanEqual[T, T]
+        ): Unit =
             assertEquals(
               l.size,
               expected.size,

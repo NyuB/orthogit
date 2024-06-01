@@ -12,34 +12,57 @@ object GitObjectEncoding:
     private val COMMIT_PREFIX = "commit "
     private val PARENT_PREFIX = "parent "
     private val AUTHOR_PREFIX = "author "
+    private val COMMITTER_PREFIX = "committer "
+    private val SPACE = ' '
+    private val NUL = '\u0000'
+    private val LF = '\n'
 
     enum GitObject derives CanEqual:
         case Blob(content: Seq[Byte])
-        case Commit(treeId: Sha1Id, parents: Seq[Sha1Id])
+        case Commit(
+            treeId: Sha1Id,
+            parents: Seq[Sha1Id],
+            author: CommitterInfo,
+            committer: CommitterInfo,
+            message: String
+        )
+
         case Tree(children: Seq[TreeEntry])
 
     case class TreeEntry(val mode: String, val path: String, val id: Sha1Id)
+    case class CommitterInfo(
+        val name: String,
+        val mail: String,
+        val timestamp: Long,
+        val timezone: String
+    ):
+        private[GitObjectEncoding] def encoded(prefix: String): Seq[Byte] =
+            s"${prefix}${name} <${mail}> ${timestamp} ${timezone}".unsafeWrapped :+ LF.toByte
 
     def encode(obj: GitObject): Seq[Byte] = obj match
         case GitObject.Blob(content) =>
-            s"blob ${content.size}\u0000${String(content.toArray, StandardCharsets.UTF_8)}".unsafeWrapped
-        case GitObject.Commit(treeId, parents) =>
+            s"${BLOB_PREFIX}${content.size}${NUL}${content.utf8}".unsafeWrapped
+        case GitObject.Commit(treeId, parents, author, committer, message) =>
             val treeLine = TREE_PREFIX
-                .getBytes() ++ treeId.hex.unsafeWrapped :+ '\n'.toByte
+                .getBytes() ++ treeId.hex.unsafeWrapped :+ LF.toByte
             val parentLines = parents.flatMap: pid =>
                 PARENT_PREFIX
-                    .getBytes() ++ pid.hex.unsafeWrapped :+ '\n'.toByte
-            val author_line = "author A <> 0 +0000".getBytes() :+ '\n'.toByte
+                    .getBytes() ++ pid.hex.unsafeWrapped :+ LF.toByte
+            val authorLine = author.encoded(AUTHOR_PREFIX)
+            val commiterLine = committer.encoded(COMMITTER_PREFIX)
             val content =
-                ArraySeq.unsafeWrapArray(treeLine) ++ parentLines ++ author_line
-            s"commit ${content.size}\u0000".unsafeWrapped ++ content
+                ArraySeq.unsafeWrapArray(
+                  treeLine
+                ) ++ parentLines ++ authorLine ++ commiterLine ++ (LF.toByte +: ArraySeq
+                    .unsafeWrapArray(message.getBytes()))
+            s"${COMMIT_PREFIX}${content.size}${NUL}".unsafeWrapped ++ content
 
         case GitObject.Tree(children) =>
             val content = children
                 .flatMap: e =>
-                    e.mode.getBytes() ++ (' '.toByte +: e.path
-                        .getBytes()) ++ ('\u0000'.toByte +: e.id.bytes)
-            s"tree ${content.size}\u0000".unsafeWrapped ++ content
+                    e.mode.getBytes() ++ (SPACE.toByte +: e.path
+                        .getBytes()) ++ (NUL.toByte +: e.id.bytes)
+            s"${TREE_PREFIX}${content.size}${NUL}".unsafeWrapped ++ content
 
     def decode(bytes: Seq[Byte]): GitObject =
         if bytes.startsWith(BLOB_PREFIX) then
@@ -50,34 +73,30 @@ object GitObjectEncoding:
             parseTree(extractContent(bytes, TREE_PREFIX))
         else ???
 
-    @annotation.nowarn("msg=unused")
     private def parseCommit(content: Seq[Byte]): GitObject.Commit =
         val parents = ArrayBuffer[Sha1Id]()
         val index = ParsingIndex(content)
         index.skipPrefix(TREE_PREFIX)
         val treeId = index.readHexSha1()
-        index.skipMarker('\n')
+        index.skipMarker(LF)
 
         while index.startsWith(PARENT_PREFIX) do
             index.skipPrefix(PARENT_PREFIX)
             parents.addOne(index.readHexSha1())
-            index.skipMarker('\n')
+            index.skipMarker(LF)
 
-        index.skipPrefix(AUTHOR_PREFIX)
-
-        val nameStart = index
-        val authorName = index.readUntilMarker(' ', '<')
-        val mail = index.readUntilMarker('>', ' ')
-        val epoch = String(index.readUntilMarker(' ').toArray).toLong
-        val tz = index.readUntilMarker('\n')
-        GitObject.Commit(treeId, parents.toSeq)
+        val author = index.readAuthor()
+        val commiter = index.readCommiter()
+        index.skipMarker(LF)
+        val message = index.readRemaining().utf8
+        GitObject.Commit(treeId, parents.toSeq, author, commiter, message)
 
     private def parseTree(content: Seq[Byte]): GitObject.Tree =
         val entries = ArrayBuffer[TreeEntry]()
         val index = ParsingIndex(content)
         while !index.over do
-            val mode = index.readUntilMarker(' ').utf8
-            val path = index.readUntilMarker('\u0000').utf8
+            val mode = index.readUntilMarker(SPACE).utf8
+            val path = index.readUntilMarker(NUL).utf8
             val sha1 = index.readByteSha1()
             entries.addOne(
               TreeEntry(
@@ -92,6 +111,26 @@ object GitObjectEncoding:
         private var index = 0
 
         def over = index >= content.size
+
+        def readRemaining(): Seq[Byte] =
+            val res = content.slice(index, content.size)
+            index = content.size
+            res
+
+        def readAuthor(): CommitterInfo =
+            skipPrefix(AUTHOR_PREFIX)
+            readCommitterInfo()
+
+        def readCommiter(): CommitterInfo =
+            skipPrefix(COMMITTER_PREFIX)
+            readCommitterInfo()
+
+        private def readCommitterInfo(): CommitterInfo =
+            val name = readUntilMarker(SPACE, '<')
+            val mail = readUntilMarker('>', SPACE)
+            val epoch = String(readUntilMarker(SPACE).toArray).toLong
+            val tz = readUntilMarker(LF)
+            CommitterInfo(name.utf8, mail.utf8, epoch, tz.utf8)
 
         def startsWith(s: String): Boolean = startsWith(s.unsafeWrapped)
         def startsWith(bytes: Seq[Byte]): Boolean =
@@ -121,7 +160,7 @@ object GitObjectEncoding:
             val here = content(index)
             require(
               here == marker,
-              s"Expected current byte to be ${marker} but got ${here}"
+              s"Expected current byte to be '${marker.toChar}' but got '${here.toChar}'"
             )
             index += 1 // skip marker
 
@@ -150,7 +189,7 @@ object GitObjectEncoding:
     private def extractContent(bytes: Seq[Byte], prefix: String): Seq[Byte] =
         val lstart = prefix.length()
         var lend = lstart
-        while bytes(lend) != '\u0000' do lend += 1
+        while bytes(lend) != NUL do lend += 1
         val len = String(bytes.slice(lstart, lend).toArray).toInt
         bytes.slice(lend + 1, lend + 1 + len)
 

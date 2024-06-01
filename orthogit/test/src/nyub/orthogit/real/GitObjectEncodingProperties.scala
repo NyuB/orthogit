@@ -8,7 +8,7 @@ import org.scalacheck.Prop._
 import scala.collection.immutable.ArraySeq
 import java.nio.charset.StandardCharsets
 
-import nyub.orthogit.real.GitObjectEncoding.GitObject
+import nyub.orthogit.real.GitObjectEncoding.{CommitterInfo, GitObject}
 import nyub.orthogit.id.Sha1
 import nyub.orthogit.id.Sha1.Sha1Id
 
@@ -52,10 +52,28 @@ class GitObjectEncodingProperties
             .map: entries =>
                 GitObject.Tree(entries)
 
+    private val committerInfoGen: Gen[CommitterInfo] =
+        Gen.stringOf(Gen.alphaNumChar)
+            .filterNot(_.isBlank())
+            .flatMap: name =>
+                Gen.stringOf(Gen.alphaNumChar)
+                    .filterNot(_.isBlank())
+                    .flatMap: mail =>
+                        Gen.long.map: ts =>
+                            CommitterInfo(name, mail, ts, "+0000")
+
     private val commitGen: Gen[GitObject.Commit] = Gen
         .listOf(sha1Gen)
         .flatMap: parents =>
-            sha1Gen.map: treeId =>
-                GitObject.Commit(treeId, parents)
+            sha1Gen.flatMap: treeId =>
+                committerInfoGen.flatMap: author =>
+                    committerInfoGen.flatMap: commiter =>
+                        GitObject.Commit(
+                          treeId,
+                          parents,
+                          author,
+                          commiter,
+                          "AAA"
+                        )
 
 end GitObjectEncodingProperties

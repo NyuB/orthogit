@@ -2,7 +2,7 @@ import mill._, scalalib._
 
 object Versions {
     val scala = "3.4.1"
-    val munit = "0.7.29"
+    val munit = "1.0.0"
 }
 
 trait SharedConfiguration extends ScalaModule {

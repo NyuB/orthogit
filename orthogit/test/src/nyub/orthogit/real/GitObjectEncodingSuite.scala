@@ -5,6 +5,7 @@ import scala.collection.immutable.ArraySeq
 import java.nio.file.Files
 import java.nio.file.Paths
 import nyub.orthogit.id.Sha1
+import nyub.orthogit.real.GitObjectEncoding.GitObject
 
 class GitObjectEncodingSuite extends munit.FunSuite with AssertExtensions:
     test("Decode blob object"):
@@ -16,7 +17,7 @@ class GitObjectEncodingSuite extends munit.FunSuite with AssertExtensions:
         val expected = Files
             .readAllBytes(Paths.get("orthogit/test/resources/blob_obj_content"))
             .bytes
-        decoded isEqualTo GitObjectEncoding.ObjectFormat.Blob(
+        decoded isEqualTo GitObject.Blob(
           expected
         )
 
@@ -26,7 +27,7 @@ class GitObjectEncodingSuite extends munit.FunSuite with AssertExtensions:
         )
         val decoded =
             GitObjectEncoding.decode(content.bytes)
-        decoded isEqualTo GitObjectEncoding.ObjectFormat.Tree(
+        decoded isEqualTo GitObject.Tree(
           Seq(
             GitObjectEncoding.TreeEntry(
               "100644",
@@ -78,7 +79,7 @@ class GitObjectEncodingSuite extends munit.FunSuite with AssertExtensions:
 
         GitObjectEncoding.decode(
           content
-        ) isEqualTo GitObjectEncoding.ObjectFormat.Commit(
+        ) isEqualTo GitObject.Commit(
           Sha1.ofHex("854954518f639d2698107018ee6a7350ce22507d"),
           Seq(Sha1.ofHex("857af98c7592434e2f877c6163219d61aadefec2"))
         )

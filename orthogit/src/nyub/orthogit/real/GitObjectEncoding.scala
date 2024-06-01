@@ -13,17 +13,17 @@ object GitObjectEncoding:
     private val PARENT_PREFIX = "parent "
     private val AUTHOR_PREFIX = "author "
 
-    enum ObjectFormat derives CanEqual:
+    enum GitObject derives CanEqual:
         case Blob(content: Seq[Byte])
         case Commit(treeId: Sha1Id, parents: Seq[Sha1Id])
         case Tree(children: Seq[TreeEntry])
 
     case class TreeEntry(val mode: String, val path: String, val id: Sha1Id)
 
-    def encode(obj: ObjectFormat): Seq[Byte] = obj match
-        case ObjectFormat.Blob(content) =>
+    def encode(obj: GitObject): Seq[Byte] = obj match
+        case GitObject.Blob(content) =>
             s"blob ${content.size}\u0000${String(content.toArray, StandardCharsets.UTF_8)}".unsafeWrapped
-        case ObjectFormat.Commit(treeId, parents) =>
+        case GitObject.Commit(treeId, parents) =>
             val treeLine = TREE_PREFIX
                 .getBytes() ++ treeId.hex.unsafeWrapped :+ '\n'.toByte
             val parentLines = parents.flatMap: pid =>
@@ -34,16 +34,16 @@ object GitObjectEncoding:
                 ArraySeq.unsafeWrapArray(treeLine) ++ parentLines ++ author_line
             s"commit ${content.size}\u0000".unsafeWrapped ++ content
 
-        case ObjectFormat.Tree(children) =>
+        case GitObject.Tree(children) =>
             val content = children
                 .flatMap: e =>
                     e.mode.getBytes() ++ (' '.toByte +: e.path
                         .getBytes()) ++ ('\u0000'.toByte +: e.id.bytes)
             s"tree ${content.size}\u0000".unsafeWrapped ++ content
 
-    def decode(bytes: Seq[Byte]): ObjectFormat =
+    def decode(bytes: Seq[Byte]): GitObject =
         if bytes.startsWith(BLOB_PREFIX) then
-            ObjectFormat.Blob(extractContent(bytes, BLOB_PREFIX))
+            GitObject.Blob(extractContent(bytes, BLOB_PREFIX))
         else if bytes.startsWith(COMMIT_PREFIX) then
             parseCommit(extractContent(bytes, COMMIT_PREFIX))
         else if bytes.startsWith(TREE_PREFIX) then
@@ -51,7 +51,7 @@ object GitObjectEncoding:
         else ???
 
     @annotation.nowarn("msg=unused")
-    private def parseCommit(content: Seq[Byte]): ObjectFormat.Commit =
+    private def parseCommit(content: Seq[Byte]): GitObject.Commit =
         val parents = ArrayBuffer[Sha1Id]()
         val index = ParsingIndex(content)
         index.skipPrefix(TREE_PREFIX)
@@ -70,9 +70,9 @@ object GitObjectEncoding:
         val mail = index.readUntilMarker('>', ' ')
         val epoch = String(index.readUntilMarker(' ').toArray).toLong
         val tz = index.readUntilMarker('\n')
-        ObjectFormat.Commit(treeId, parents.toSeq)
+        GitObject.Commit(treeId, parents.toSeq)
 
-    private def parseTree(content: Seq[Byte]): ObjectFormat.Tree =
+    private def parseTree(content: Seq[Byte]): GitObject.Tree =
         val entries = ArrayBuffer[TreeEntry]()
         val index = ParsingIndex(content)
         while !index.over do
@@ -86,7 +86,7 @@ object GitObjectEncoding:
                 sha1
               )
             )
-        ObjectFormat.Tree(entries.toSeq)
+        GitObject.Tree(entries.toSeq)
 
     private class ParsingIndex(private val content: Seq[Byte]):
         private var index = 0

@@ -4,10 +4,13 @@ import nyub.assert.AssertExtensions
 import org.scalacheck.Arbitrary
 import org.scalacheck.Gen
 import org.scalacheck.Prop._
+
 import scala.collection.immutable.ArraySeq
-import nyub.orthogit.id.Sha1.Sha1Id
 import java.nio.charset.StandardCharsets
+
+import nyub.orthogit.real.GitObjectEncoding.GitObject
 import nyub.orthogit.id.Sha1
+import nyub.orthogit.id.Sha1.Sha1Id
 
 class GitObjectEncodingProperties
     extends munit.ScalaCheckSuite
@@ -16,12 +19,12 @@ class GitObjectEncodingProperties
     override def scalaCheckInitialSeed =
         "L6ILXuhXQyauaiyKhTyfFc1GmpmQ5Hr6ayJNTUeR2-G="
 
-    given Arbitrary[GitObjectEncoding.ObjectFormat] = Arbitrary(
+    given Arbitrary[GitObject] = Arbitrary(
       Gen.frequency(1 -> blobGen, 1 -> treeGen, 1 -> commitGen)
     )
 
     property("Encode then decode is identity"):
-        forAll: (obj: GitObjectEncoding.ObjectFormat) =>
+        forAll: (obj: GitObject) =>
             val encoded = GitObjectEncoding.encode(obj)
             val decoded = GitObjectEncoding.decode(encoded)
             decoded isEqualTo obj
@@ -30,8 +33,8 @@ class GitObjectEncodingProperties
         ArraySeq.unsafeWrapArray(str.getBytes(StandardCharsets.UTF_8))
     )
 
-    private val blobGen: Gen[GitObjectEncoding.ObjectFormat.Blob] =
-        bytesGen.map(GitObjectEncoding.ObjectFormat.Blob(_))
+    private val blobGen: Gen[GitObject.Blob] =
+        bytesGen.map(GitObject.Blob(_))
 
     private val sha1Gen: Gen[Sha1Id] =
         Gen.stringOfN(40, Gen.hexChar).map(Sha1.ofHex)
@@ -44,15 +47,15 @@ class GitObjectEncodingProperties
                         .map: mode =>
                             GitObjectEncoding.TreeEntry(mode, path, id)
 
-    private val treeGen: Gen[GitObjectEncoding.ObjectFormat.Tree] =
+    private val treeGen: Gen[GitObject.Tree] =
         Gen.listOf(treeEntryGen)
             .map: entries =>
-                GitObjectEncoding.ObjectFormat.Tree(entries)
+                GitObject.Tree(entries)
 
-    private val commitGen: Gen[GitObjectEncoding.ObjectFormat.Commit] = Gen
+    private val commitGen: Gen[GitObject.Commit] = Gen
         .listOf(sha1Gen)
         .flatMap: parents =>
             sha1Gen.map: treeId =>
-                GitObjectEncoding.ObjectFormat.Commit(treeId, parents)
+                GitObject.Commit(treeId, parents)
 
 end GitObjectEncodingProperties

@@ -53,61 +53,32 @@ object GitObjectEncoding:
     @annotation.nowarn("msg=unused")
     private def parseCommit(content: Seq[Byte]): ObjectFormat.Commit =
         val parents = ArrayBuffer[Sha1Id]()
-        require(content.startsWith(TREE_PREFIX))
-        var index = TREE_PREFIX.length()
-        val treeId = Sha1.ofHex(content.slice(index, index + 40))
-        index = index + 41 // skip '\n'
-        while content.slice(index, content.size).startsWith(PARENT_PREFIX) do
-            index += PARENT_PREFIX.length()
-            parents.addOne(Sha1.ofHex(content.slice(index, index + 40)))
-            index += 41
-        require(
-          content.slice(index, content.size).startsWith(AUTHOR_PREFIX),
-          String(content.slice(index, content.size).toArray)
-        )
-        index += AUTHOR_PREFIX.length()
+        val index = ParsingIndex(content)
+        index.skipPrefix(TREE_PREFIX)
+        val treeId = index.readHexSha1()
+        index.skipMarker('\n')
+
+        while index.startsWith(PARENT_PREFIX) do
+            index.skipPrefix(PARENT_PREFIX)
+            parents.addOne(index.readHexSha1())
+            index.skipMarker('\n')
+
+        index.skipPrefix(AUTHOR_PREFIX)
 
         val nameStart = index
-        while content(index) -> content(index + 1) != ' '.toByte -> '<'.toByte
-        do index += 1
-        val authorName = content.slice(nameStart, index)
-
-        val mailStart = index + 2
-        index = mailStart
-        while content(index) != '>' do index += 1
-        val mail = content.slice(mailStart, index)
-
-        val epochStart = index + 2
-        index = epochStart
-        while content(index) != ' '.toByte do index += 1
-        val epoch = String(content.slice(epochStart, index).toArray).toLong
-
-        val tzStart = index + 1
-        while content(index) != '\n' do index += 1
-        val tz = content.slice(tzStart, index)
+        val authorName = index.readUntilMarker(' ', '<')
+        val mail = index.readUntilMarker('>', ' ')
+        val epoch = String(index.readUntilMarker(' ').toArray).toLong
+        val tz = index.readUntilMarker('\n')
         ObjectFormat.Commit(treeId, parents.toSeq)
 
     private def parseTree(content: Seq[Byte]): ObjectFormat.Tree =
         val entries = ArrayBuffer[TreeEntry]()
-        var indexStart = 0
-        var indexEnd = indexStart
-        while indexStart < content.size do
-            while content(indexEnd) != ' ' do indexEnd += 1
-            val mode = String(
-              content.slice(indexStart, indexEnd).toArray,
-              StandardCharsets.UTF_8
-            )
-            indexStart = indexEnd + 1
-            while content(indexEnd) != '\u0000' do indexEnd += 1
-            val path = String(
-              content.slice(indexStart, indexEnd).toArray,
-              StandardCharsets.UTF_8
-            )
-            indexStart = indexEnd + 1
-            indexEnd = indexStart + 20
-            val sha1 =
-                Sha1.ofBytes(content.slice(indexStart, indexEnd))
-            indexStart = indexEnd
+        val index = ParsingIndex(content)
+        while !index.over do
+            val mode = index.readUntilMarker(' ').utf8
+            val path = index.readUntilMarker('\u0000').utf8
+            val sha1 = index.readByteSha1()
             entries.addOne(
               TreeEntry(
                 mode,
@@ -116,6 +87,65 @@ object GitObjectEncoding:
               )
             )
         ObjectFormat.Tree(entries.toSeq)
+
+    private class ParsingIndex(private val content: Seq[Byte]):
+        private var index = 0
+
+        def over = index >= content.size
+
+        def startsWith(s: String): Boolean = startsWith(s.unsafeWrapped)
+        def startsWith(bytes: Seq[Byte]): Boolean =
+            content.slice(index, index + bytes.size) == bytes
+
+        def readByteSha1(): Sha1Id =
+            val res = content.slice(index, index + 20)
+            index += 20
+            Sha1.ofBytes(res)
+
+        def readHexSha1(): Sha1Id =
+            val res = content.slice(index, index + 40)
+            index += 40
+            Sha1.ofHex(res)
+
+        def skipPrefix(s: String): Unit = skipPrefix(s.unsafeWrapped)
+        def skipPrefix(prefix: Seq[Byte]): Unit =
+            val here = content.slice(index, index + prefix.size)
+            require(
+              here == prefix,
+              s"Expected current bytes to start with ${prefix} but was ${here}"
+            )
+            index += prefix.size
+
+        def skipMarker(marker: Char): Unit = skipMarker(marker.toByte)
+        def skipMarker(marker: Byte): Unit =
+            val here = content(index)
+            require(
+              here == marker,
+              s"Expected current byte to be ${marker} but got ${here}"
+            )
+            index += 1 // skip marker
+
+        def readUntilMarker(a: Char, b: Char): Seq[Byte] =
+            readUntilMarker(a.toByte, b.toByte)
+
+        def readUntilMarker(a: Byte, b: Byte): Seq[Byte] =
+            val start = index
+            while content(index) -> content(index + 1) != a.toByte -> b.toByte
+            do index += 1
+            val res = content.slice(start, index)
+            index += 2 // skip marker
+            res
+
+        def readUntilMarker(marker: Char): Seq[Byte] = readUntilMarker(
+          marker.toByte
+        )
+
+        def readUntilMarker(marker: Byte): Seq[Byte] =
+            val start = index
+            while content(index) != marker do index += 1
+            val res = content.slice(start, index)
+            index += 1
+            res
 
     private def extractContent(bytes: Seq[Byte], prefix: String): Seq[Byte] =
         val lstart = prefix.length()
@@ -126,5 +156,8 @@ object GitObjectEncoding:
 
     extension (s: String)
         private def unsafeWrapped = ArraySeq.unsafeWrapArray(s.getBytes())
+
+    extension (bytes: Seq[Byte])
+        private def utf8 = String(bytes.toArray, StandardCharsets.UTF_8)
 
 end GitObjectEncoding

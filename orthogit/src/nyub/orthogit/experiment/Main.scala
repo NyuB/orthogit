@@ -1,25 +1,21 @@
 package nyub.orthogit.experiment
 
 import java.nio.file.Paths
-import java.nio.file.Files
 import java.nio.charset.StandardCharsets
+import java.io.FileOutputStream
 
 @main def main(args: String*): Unit =
     val cmd = args(0)
     if cmd == "unzip" then
         val origin = args(1)
-        val content = String(
-          Zlib.decompressFile(Paths.get(origin)).toArray,
-          StandardCharsets.UTF_8
-        )
-        if args.length < 3 then println(content)
+        val content =
+            Zlib.decompressFile(Paths.get(origin)).toArray
+
+        if args.length < 3 then println(String(content, StandardCharsets.UTF_8))
         else
             val target = args(2)
-            println(
-              Files.writeString(
-                Paths.get(target),
-                content,
-                StandardCharsets.UTF_8
-              )
-            )
+            val fos = FileOutputStream(Paths.get(target).toFile())
+            fos.write(content)
+            fos.flush()
+            fos.close()
     else println(s"Invalid command ${cmd}, supported commands are {unzip}")

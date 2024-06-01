@@ -71,6 +71,18 @@ class GitObjectEncodingSuite extends munit.FunSuite with AssertExtensions:
           )
         )
 
+    test("Decode commit object"):
+        val content = Files
+            .readAllBytes(Paths.get("orthogit/test/resources/commit_obj"))
+            .bytes
+
+        GitObjectEncoding.decode(
+          content
+        ) isEqualTo GitObjectEncoding.ObjectFormat.Commit(
+          Sha1.ofHex("854954518f639d2698107018ee6a7350ce22507d"),
+          Seq(Sha1.ofHex("857af98c7592434e2f877c6163219d61aadefec2"))
+        )
+
     extension (arr: Array[Byte])
         private def bytes: Seq[Byte] = ArraySeq.unsafeWrapArray(arr)
 

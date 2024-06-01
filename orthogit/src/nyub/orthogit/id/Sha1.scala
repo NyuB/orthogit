@@ -34,6 +34,8 @@ object Sha1:
 
         ArraySeq.unsafeWrapArray(res)
 
+    def ofHex(hexRepr: Seq[Byte]): Sha1Id = ofHex(String(hexRepr.toArray))
+
     extension (c: Char)
         private def hexToInt: Int = c.toLower match
             case 'a'   => 10

@@ -17,7 +17,7 @@ class GitObjectEncodingProperties
         "L6ILXuhXQyauaiyKhTyfFc1GmpmQ5Hr6ayJNTUeR2-G="
 
     given Arbitrary[GitObjectEncoding.ObjectFormat] = Arbitrary(
-      Gen.frequency(1 -> blobGen, (1 -> treeGen))
+      Gen.frequency(1 -> blobGen, 1 -> treeGen, 1 -> commitGen)
     )
 
     property("Encode then decode is identity"):
@@ -48,5 +48,11 @@ class GitObjectEncodingProperties
         Gen.listOf(treeEntryGen)
             .map: entries =>
                 GitObjectEncoding.ObjectFormat.Tree(entries)
+
+    private val commitGen: Gen[GitObjectEncoding.ObjectFormat.Commit] = Gen
+        .listOf(sha1Gen)
+        .flatMap: parents =>
+            sha1Gen.map: treeId =>
+                GitObjectEncoding.ObjectFormat.Commit(treeId, parents)
 
 end GitObjectEncodingProperties

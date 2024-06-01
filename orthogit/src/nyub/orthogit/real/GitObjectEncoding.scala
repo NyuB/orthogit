@@ -1,10 +1,10 @@
 package nyub.orthogit.real
 
+import nyub.orthogit.id.Sha1
 import nyub.orthogit.id.Sha1.Sha1Id
 import scala.collection.immutable.ArraySeq
 import java.nio.charset.StandardCharsets
 import scala.collection.mutable.ArrayBuffer
-import nyub.orthogit.id.Sha1
 
 object GitObjectEncoding:
     private val BLOB_PREFIX = "blob "

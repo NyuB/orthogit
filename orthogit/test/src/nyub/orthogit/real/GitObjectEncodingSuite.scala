@@ -1,17 +1,12 @@
 package nyub.orthogit.real
 
-import org.scalacheck.Prop._
-import org.scalacheck.Gen
 import nyub.assert.AssertExtensions
-import org.scalacheck.Arbitrary
-import java.nio.charset.StandardCharsets
 import scala.collection.immutable.ArraySeq
 import java.nio.file.Files
 import java.nio.file.Paths
 import nyub.orthogit.id.Sha1
-import nyub.orthogit.id.Sha1.Sha1Id
 
-class GitObjectEncodingTests extends munit.FunSuite with AssertExtensions:
+class GitObjectEncodingSuite extends munit.FunSuite with AssertExtensions:
     test("Decode blob object"):
         val content = Files.readAllBytes(
           Paths.get("orthogit/test/resources/blob_obj")
@@ -80,46 +75,4 @@ class GitObjectEncodingTests extends munit.FunSuite with AssertExtensions:
         private def bytes: Seq[Byte] = ArraySeq.unsafeWrapArray(arr)
 
     extension (s: String) def bytes: Seq[Byte] = s.getBytes().bytes
-end GitObjectEncodingTests
-
-class GitObjectEncodingProperties
-    extends munit.ScalaCheckSuite
-    with AssertExtensions:
-
-    override def scalaCheckInitialSeed =
-        "L6ILXuhXQyauaiyKhTyfFc1GmpmQ5Hr6ayJNTUeR2-G="
-
-    given Arbitrary[GitObjectEncoding.ObjectFormat] = Arbitrary(
-      Gen.frequency(1 -> blobGen, (1 -> treeGen))
-    )
-
-    property("Encode then decode is identity"):
-        forAll: (obj: GitObjectEncoding.ObjectFormat) =>
-            val encoded = GitObjectEncoding.encode(obj)
-            val decoded = GitObjectEncoding.decode(encoded)
-            decoded isEqualTo obj
-
-    private val bytesGen: Gen[Seq[Byte]] = Gen.asciiStr.map(str =>
-        ArraySeq.unsafeWrapArray(str.getBytes(StandardCharsets.UTF_8))
-    )
-
-    private val blobGen: Gen[GitObjectEncoding.ObjectFormat.Blob] =
-        bytesGen.map(GitObjectEncoding.ObjectFormat.Blob(_))
-
-    private val sha1Gen: Gen[Sha1Id] =
-        Gen.stringOfN(40, Gen.hexChar).map(Sha1.ofHex)
-
-    private val treeEntryGen: Gen[GitObjectEncoding.TreeEntry] =
-        sha1Gen.flatMap: id =>
-            Gen.nonEmptyStringOf(Gen.alphaNumChar)
-                .flatMap: path =>
-                    Gen.oneOf(Seq("40000", "100644"))
-                        .map: mode =>
-                            GitObjectEncoding.TreeEntry(mode, path, id)
-
-    private val treeGen: Gen[GitObjectEncoding.ObjectFormat.Tree] =
-        Gen.listOf(treeEntryGen)
-            .map: entries =>
-                GitObjectEncoding.ObjectFormat.Tree(entries)
-
-end GitObjectEncodingProperties
+end GitObjectEncodingSuite

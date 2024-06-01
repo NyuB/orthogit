@@ -6,6 +6,14 @@ import java.math.BigInteger
 object Sha1:
     opaque type Sha1Id = Seq[Byte]
     given CanEqual[Sha1Id, Sha1Id] = CanEqual.derived
+
+    def ofBytes(bytes: Seq[Byte]): Sha1Id =
+        if bytes.size != 20 then
+            throw IllegalArgumentException(
+              s"Expected 20 bytes but got ${bytes.length}"
+            )
+        bytes
+
     def ofHex(hexRepr: String): Sha1Id =
         if hexRepr.length() != 40 then
             throw IllegalArgumentException(
@@ -38,6 +46,7 @@ object Sha1:
 
     extension (sha1: Sha1Id)
         def hex: String = String.format("%040x", BigInteger(1, sha1.toArray))
+        def bytes: Array[Byte] = sha1.toArray
 
     object Sha1Identifier extends Identifier[Array[Byte], Sha1Id]:
         override def id(obj: Array[Byte]): Sha1Id =

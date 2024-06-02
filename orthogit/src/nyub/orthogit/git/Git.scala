@@ -23,7 +23,7 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
         val root = headTreeId
             .map(StagingTree.stableTree[PathElement, Obj, Id])
             .getOrElse(StagingTree.emptyRoot[PathElement, Obj, Id])
-        StagingArea(root, getStagingChildren)
+        StagingArea(root, unsafeGetStagingChildren)
 
     def add(obj: StagedObject[PathElement, Obj]) = stagingArea.update(obj)
 
@@ -38,11 +38,11 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
               treeId,
               meta
             )
-        val id = objectStorage.store(commitObject)
-        head.set(Some(id))
-        updateBranch(id)
+        val commitId = objectStorage.store(commitObject)
+        head.set(Some(commitId))
+        updateBranch(commitId)
         stagingArea.reset(StagingTree.stableTree(treeId))
-        id
+        commitId
 
     def show(
         commitId: CommitId
@@ -116,30 +116,35 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
       "Panic, reached illegal state"
     )
 
-    private def getStagingChildren(
+    private def unsafeGetStagingChildren(
         id: Id
     ): Map[PathElement, StagingTree.StableTree[PathElement, Obj, Id]] =
+        val tree = unsafeGetTree(id)
+        tree.childrenIds.view
+            .mapValues: cid =>
+                objectStorage
+                    .get(cid)
+                    .collect:
+                        case StoredObjects.Tree(_) =>
+                            StagingTree
+                                .stableTree[PathElement, Obj, Id](
+                                  cid
+                                )
+                        case StoredObjects.Blob(_) =>
+                            StagingTree
+                                .stableObject[PathElement, Obj, Id](
+                                  cid
+                                )
+                    .getOrElse(?!!)
+            .toMap
+
+    private def unsafeGetTree(
+        treeId: Id
+    ): StoredObjects.Tree[Obj, Id, PathElement, Meta] =
         objectStorage
-            .get(id)
+            .get(treeId)
             .collect:
-                case StoredObjects.Tree(c) =>
-                    c.view
-                        .mapValues: cid =>
-                            objectStorage
-                                .get(cid)
-                                .collect:
-                                    case StoredObjects.Tree(_) =>
-                                        StagingTree
-                                            .stableTree[PathElement, Obj, Id](
-                                              cid
-                                            )
-                                    case StoredObjects.Blob(_) =>
-                                        StagingTree
-                                            .stableObject[PathElement, Obj, Id](
-                                              cid
-                                            )
-                                .getOrElse(?!!)
-                        .toMap
+                case t: StoredObjects.Tree[Obj, Id, PathElement, Meta] => t
             .getOrElse(?!!)
 
 end Git

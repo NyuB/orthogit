@@ -6,6 +6,10 @@ trait AssertExtensions extends munit.Assertions:
         infix def isEqualTo[U <: T](other: U)(using CanEqual[T, U]): Unit =
             assertEquals(t, other)
 
+        infix def matches(pf: PartialFunction[T, Boolean]): Unit =
+            if pf.isDefinedAt(t) then assertEquals(pf(t), true)
+            else fail(s"Expected ${t} to match ${pf}")
+
     extension [T](l: Iterable[T])
         infix def containsExactlyInAnyOrder(expected: Iterable[T])(using
             CanEqual[T, T]

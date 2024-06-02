@@ -3,7 +3,6 @@ package nyub.orthogit.real
 import nyub.assert.AssertExtensions
 import org.scalacheck.Arbitrary
 import org.scalacheck.Gen
-import org.scalacheck.Prop._
 
 import scala.collection.immutable.ArraySeq
 import java.nio.charset.StandardCharsets
@@ -11,10 +10,12 @@ import java.nio.charset.StandardCharsets
 import nyub.orthogit.real.GitObjectEncoding.{CommitterInfo, GitObject}
 import nyub.orthogit.id.Sha1
 import nyub.orthogit.id.Sha1.Sha1Id
+import nyub.assert.PropertiesExtensions
 
 class GitObjectEncodingProperties
     extends munit.ScalaCheckSuite
-    with AssertExtensions:
+    with AssertExtensions
+    with PropertiesExtensions:
 
     override def scalaCheckInitialSeed =
         "L6ILXuhXQyauaiyKhTyfFc1GmpmQ5Hr6ayJNTUeR2-G="
@@ -23,11 +24,8 @@ class GitObjectEncodingProperties
       Gen.frequency(1 -> blobGen, 1 -> treeGen, 1 -> commitGen)
     )
 
-    property("Encode then decode is identity"):
-        forAll: (obj: GitObject) =>
-            val encoded = GitObjectEncoding.encode(obj)
-            val decoded = GitObjectEncoding.decode(encoded)
-            decoded isEqualTo obj
+    property("decoding is the inverse of encoding"):
+        GitObjectEncoding.decode isTheInverseOf GitObjectEncoding.encode
 
     private val bytesGen: Gen[Seq[Byte]] = Gen.asciiStr.map(str =>
         ArraySeq.unsafeWrapArray(str.getBytes(StandardCharsets.UTF_8))

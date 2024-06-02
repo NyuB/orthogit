@@ -9,19 +9,25 @@ import scala.annotation
 
 @annotation.nowarn("msg=unused value")
 class GitSuite extends munit.FunSuite with AssertExtensions:
-    private type TestFile = String
+    private type TestObj = String
     private type TestPath = String
     private type TestId = Sha1Id
     private type TestLabel = String
+    private type TestMeta = String
+    private val withSomeMetadata: TestMeta = "Message"
     private val fileSha1 = deriveSha1Identifier[String]
 
-    test("Write then get one object"):
+    test("Add one object, commit, retrieve object and commit metadata"):
         val git = TestGit()
         val path = ObjectPath(Seq(), "A.txt")
         val content = "AAA"
         git.add(StagedObject(path, content))
-        git.commit()
+        val commitId = git.commit(withSomeMetadata)
+
         git.get(path) isEqualTo Some(content)
+        git.show(commitId) matches:
+            case StoredObjects.Commit(None, _, meta) =>
+                meta == withSomeMetadata
 
     test("Add two objects with same path prefix, commit, get each object"):
         val git = TestGit()
@@ -32,7 +38,7 @@ class GitSuite extends munit.FunSuite with AssertExtensions:
 
         git.add(StagedObject(pathA, a))
         git.add(StagedObject(pathB, b))
-        git.commit()
+        git.commit(withSomeMetadata)
 
         git.get(pathA) isEqualTo Some(a)
         git.get(pathB) isEqualTo Some(b)
@@ -45,9 +51,9 @@ class GitSuite extends munit.FunSuite with AssertExtensions:
         val b = "BBB"
 
         git.add(StagedObject(pathA, a))
-        git.commit()
+        git.commit(withSomeMetadata)
         git.add(StagedObject(pathB, b))
-        git.commit()
+        git.commit(withSomeMetadata)
 
         git.get(pathA) isEqualTo Some(a)
         git.get(pathB) isEqualTo Some(b)
@@ -57,7 +63,7 @@ class GitSuite extends munit.FunSuite with AssertExtensions:
         val pathA = ObjectPath(Seq.empty, "A.txt")
         val a = "AAA"
         git.add(StagedObject(pathA, a))
-        git.commit()
+        git.commit(withSomeMetadata)
         git.staged isEqualTo Seq.empty[ObjectPath[String]]
 
     test(
@@ -69,9 +75,9 @@ class GitSuite extends munit.FunSuite with AssertExtensions:
         val updatedContent = "ZZZ"
 
         git.add(StagedObject(path, initialContent))
-        val initialCommit = git.commit()
+        val initialCommit = git.commit(withSomeMetadata)
         git.add(StagedObject(path, updatedContent))
-        val secondCommit = git.commit()
+        val secondCommit = git.commit(withSomeMetadata)
 
         git.get(path) isEqualTo Some(updatedContent)
         git.checkout(initialCommit)
@@ -88,18 +94,18 @@ class GitSuite extends munit.FunSuite with AssertExtensions:
         val updatedContent = "ZZZ"
 
         git.add(StagedObject(path, initialContent))
-        val initialCommit = git.commit()
+        val initialCommit = git.commit(withSomeMetadata)
         git.branch("main", initialCommit)
         git.checkoutBranch("main")
         git.add(StagedObject(path, updatedContent))
-        git.commit()
+        git.commit(withSomeMetadata)
 
         git.checkout(initialCommit)
         git.get(path) isEqualTo Some(initialContent)
         git.checkoutBranch("main")
         git.get(path) isEqualTo Some(updatedContent)
 
-    class TestGit extends Git[TestFile, TestId, TestLabel, TestPath]:
+    class TestGit extends Git[TestObj, TestId, TestLabel, TestPath, TestMeta]:
         override protected val currentBranch: Head[TestLabel] =
             MutableOption[TestLabel]
 
@@ -107,8 +113,10 @@ class GitSuite extends munit.FunSuite with AssertExtensions:
         override protected val labelStorage: LabelStorage[String, Sha1Id] =
             LabelStorage.InMemory()
 
-        override protected val objectStorage
-            : ObjectStorage[StoredObjects[String, Sha1Id, String], Sha1Id] =
+        override protected val objectStorage: ObjectStorage[
+          StoredObjects[String, Sha1Id, String, TestMeta],
+          Sha1Id
+        ] =
             ObjectStorage.InMemory(using TestIdentifier)()
 
         private class MutableOption[T] extends Head[T]:
@@ -117,10 +125,13 @@ class GitSuite extends munit.FunSuite with AssertExtensions:
             override def set(id: Option[T]): Unit = headPointer = id
 
     object TestIdentifier
-        extends Identifier[StoredObjects[TestFile, TestId, TestPath], TestId]:
+        extends Identifier[
+          StoredObjects[TestObj, TestId, TestPath, TestMeta],
+          TestId
+        ]:
 
         override def id(
-            obj: StoredObjects[TestFile, TestId, TestPath]
+            obj: StoredObjects[TestObj, TestId, TestPath, TestMeta]
         ): TestId =
             obj match
                 case Blob(obj) => fileSha1.id(s"blob ${obj.length}\u0000${obj}")
@@ -131,9 +142,9 @@ class GitSuite extends munit.FunSuite with AssertExtensions:
                             val (path, objId) = item
                             fileSha1.id(s"${acc}${path}/${objId}").hex
                     fileSha1.id(s"tree ${cId}")
-                case Commit(parentId, treeId) =>
+                case Commit(parentId, treeId, msg) =>
                     fileSha1.id(
-                      s"commit ${parentId.map(_.hex).getOrElse("none")} ${treeId.hex}}"
+                      s"commit ${parentId.map(_.hex).getOrElse("none")} ${treeId.hex} ${msg}"
                     )
 
 end GitSuite

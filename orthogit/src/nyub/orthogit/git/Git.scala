@@ -25,8 +25,30 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
             .getOrElse(StagingTree.emptyRoot[PathElement, Obj, Id])
         StagingArea(root, unsafeGetStagingChildren)
 
-    def add(obj: StagedObject[PathElement, Obj]) = stagingArea.update(obj)
+    /** Stages `obj`, adding it to the bulk of objects that would be part of a
+      * [[Git.commit]]. If there is already a staged object at this path, it
+      * will be replaced. If there is no staged object at this path, it will be
+      * created.
+      * @param obj
+      *   a path and the data to update at this path
+      */
+    def add(stagedObject: StagedObject[PathElement, Obj]): Unit =
+        stagingArea.update(stagedObject)
 
+    /** Creates a new commit from the updates of the staging area.
+      *
+      * Additional side effects:
+      *   - Clears the staging area
+      *   - Updates the current branch to point to the created commit
+      *   - Updates the current
+      * head to point to the created commit
+      * @param meta
+      *   the metadata to associate with this commit
+      * @return
+      *   the id of the created commit
+      * @see
+      *   [[Git.add]] to stage objects before committing
+      */
     def commit(meta: Meta): CommitId =
         val treeId = stagingArea.synchronize(
           o => objectStorage.store(StoredObjects.Blob(o)),
@@ -44,36 +66,80 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
         stagingArea.reset(StagingTree.stableTree(treeId))
         commitId
 
+    /** @param commitId
+      *   a commit id, e.g. retrieved from [[Git.commit]]
+      * @return
+      *   the commit associated with this id
+      */
     def show(
         commitId: CommitId
-    ): StoredObjects.Commit[Obj, Id, PathElement, Meta] =
+    ): StoredObjects.Commit[Obj, Id, PathElement, Meta] = // TODO define a proper api for such 'status' operations to avoid exposing low-level StoredObjects
         objectStorage.get(commitId) match
             case Some(c: StoredObjects.Commit[Obj, Id, PathElement, Meta]) => c
             case _ => ?!!
 
-    def checkout(id: CommitId): Unit = objectStorage.get(id) match
+    /** Positions the current head at the commit indicated by `commitId`
+      *
+      * Additional side effects:
+      *   - Clears the staging area
+      *   - Unsets the current branch if any ('detached HEAD')
+      * @param commitId
+      *   id of the commit to move to
+      */
+    def checkout(commitId: CommitId): Unit = objectStorage.get(commitId) match
         case Some(StoredObjects.Commit(_, treeId, _)) =>
             stagingArea.reset(StagingTree.stableTree(treeId))
             currentBranch.unset() // detached HEAD
-            head.set(Some(id))
+            head.set(Some(commitId))
         case _ => ???
 
-    def checkoutBranch(label: Label): CommitId =
+    /** [[Git.checkout]] to the commit indicated by `label` and positions the
+      * current branch to `label`
+      *
+      * @param label
+      *   label of the branch to go to
+      * @return
+      *   the head commit id after checkout
+      */
+    def checkoutLabel(label: Label): CommitId =
         labelStorage.get(label) match
             case Some(id) =>
                 objectStorage.get(id) match
                     case Some(StoredObjects.Commit(_, _, _)) =>
-                        head.set(Some(id))
+                        checkout(id)
                         currentBranch.set(Some(label))
                         id
-                    case _ => ???
+                    case _ => ?!!
             case None => ???
 
-    def branch(name: Label, id: CommitId): Unit = labelStorage.set(name, id)
+    /** Makes the branch with name `label` point to commit `commitId`.
+      *
+      * @param name
+      *   label of the branch. If it did not exist it is created, if it existed
+      *   it is updated.
+      * @param commitId
+      *   commit id to point to
+      */
+    def branch(name: Label, commitId: CommitId): Unit =
+        labelStorage.set(name, commitId)
 
+    /** Retrieves the object stored at path `objectPath` in the current head's
+      * tree, if any.
+      *
+      * @param objectPath
+      *   the path to the desired object
+      * @return
+      *   `Some(obj)` if `obj` is indeed present ath this path in the current
+      *   tree, or `None` if:
+      *   - There is no object at this path in the current tree
+      *   - The current head is not pointing to any commit
+      */
     def get(objectPath: ObjectPath[PathElement]): Option[Obj] =
         get(getHeadTree, objectPath)
 
+    /** @return
+      *   all paths leading to objects staged for update
+      */
     def staged: Seq[ObjectPath[PathElement]] = stagingArea.staged
 
     private def get(

@@ -14,20 +14,24 @@ class GitSuite extends munit.FunSuite with AssertExtensions:
     private type TestId = Sha1Id
     private type TestLabel = String
     private type TestMeta = String
-    private val withSomeMetadata: TestMeta = "Message"
+    private val someMetadata: TestMeta = "Message"
+    private val someObject: TestObj = "Object"
+    private val somePath: ObjectPath[TestPath] =
+        ObjectPath(Seq("leading"), "trailing.path")
+
+    private val someLabel: TestLabel = "test-branch"
     private val fileSha1 = deriveSha1Identifier[String]
 
     test("Add one object, commit, retrieve object and commit metadata"):
         val git = TestGit()
-        val path = ObjectPath(Seq(), "A.txt")
-        val content = "AAA"
-        git.add(StagedObject(path, content))
-        val commitId = git.commit(withSomeMetadata)
 
-        git.get(path) isEqualTo Some(content)
+        git.add(StagedObject(somePath, someObject))
+        val commitId = git.commit(someMetadata)
+
+        git.get(somePath) isEqualTo Some(someObject)
         git.show(commitId) matches:
             case StoredObjects.Commit(None, _, meta) =>
-                meta == withSomeMetadata
+                meta == someMetadata
 
     test("Add two objects with same path prefix, commit, get each object"):
         val git = TestGit()
@@ -38,7 +42,7 @@ class GitSuite extends munit.FunSuite with AssertExtensions:
 
         git.add(StagedObject(pathA, a))
         git.add(StagedObject(pathB, b))
-        git.commit(withSomeMetadata)
+        git.commit(someMetadata)
 
         git.get(pathA) isEqualTo Some(a)
         git.get(pathB) isEqualTo Some(b)
@@ -51,59 +55,78 @@ class GitSuite extends munit.FunSuite with AssertExtensions:
         val b = "BBB"
 
         git.add(StagedObject(pathA, a))
-        git.commit(withSomeMetadata)
+        git.commit(someMetadata)
         git.add(StagedObject(pathB, b))
-        git.commit(withSomeMetadata)
+        git.commit(someMetadata)
 
         git.get(pathA) isEqualTo Some(a)
         git.get(pathB) isEqualTo Some(b)
 
+    test("Staging area contains path after add"):
+        val git = TestGit()
+        git.add(StagedObject(somePath, someObject))
+        git.staged isEqualTo Seq(somePath)
+
     test("Staging area is empty after commit"):
         val git = TestGit()
-        val pathA = ObjectPath(Seq.empty, "A.txt")
-        val a = "AAA"
-        git.add(StagedObject(pathA, a))
-        git.commit(withSomeMetadata)
-        git.staged isEqualTo Seq.empty[ObjectPath[String]]
+        git.add(StagedObject(somePath, someObject))
+
+        git.commit(someMetadata)
+
+        git.staged isEqualTo Seq.empty
+
+    test("Staging area is empty after checkout"):
+        val git = TestGit()
+        val commitId = git.commit(someMetadata)
+        git.branch(someLabel, commitId)
+        def addSomeObject() = git.add(StagedObject(somePath, someObject))
+
+        // Simple checkout
+        addSomeObject()
+        git.checkout(commitId)
+        git.staged isEqualTo Seq.empty
+
+        // Label checkout
+        addSomeObject()
+        git.checkoutLabel(someLabel)
+        git.staged isEqualTo Seq.empty
 
     test(
       "Commit one object, update it and commit, checkout each commit and get object"
     ):
         val git = TestGit()
-        val path = ObjectPath(Seq(), "A.txt")
         val initialContent = "AAA"
         val updatedContent = "ZZZ"
 
-        git.add(StagedObject(path, initialContent))
-        val initialCommit = git.commit(withSomeMetadata)
-        git.add(StagedObject(path, updatedContent))
-        val secondCommit = git.commit(withSomeMetadata)
+        git.add(StagedObject(somePath, initialContent))
+        val initialCommit = git.commit(someMetadata)
+        git.add(StagedObject(somePath, updatedContent))
+        val secondCommit = git.commit(someMetadata)
 
-        git.get(path) isEqualTo Some(updatedContent)
+        git.get(somePath) isEqualTo Some(updatedContent)
         git.checkout(initialCommit)
-        git.get(path) isEqualTo Some(initialContent)
+        git.get(somePath) isEqualTo Some(initialContent)
         git.checkout(secondCommit)
-        git.get(path) isEqualTo Some(updatedContent)
+        git.get(somePath) isEqualTo Some(updatedContent)
 
     test(
       "Commit version#1, make branch, commit version #2, checkout version#1, checkout branch, get version#2"
     ):
         val git = TestGit()
-        val path = ObjectPath(Seq(), "A.txt")
         val initialContent = "AAA"
         val updatedContent = "ZZZ"
 
-        git.add(StagedObject(path, initialContent))
-        val initialCommit = git.commit(withSomeMetadata)
-        git.branch("main", initialCommit)
-        git.checkoutBranch("main")
-        git.add(StagedObject(path, updatedContent))
-        git.commit(withSomeMetadata)
+        git.add(StagedObject(somePath, initialContent))
+        val initialCommit = git.commit(someMetadata)
+        git.branch(someLabel, initialCommit)
+        git.checkoutLabel(someLabel)
+        git.add(StagedObject(somePath, updatedContent))
+        git.commit(someMetadata)
 
         git.checkout(initialCommit)
-        git.get(path) isEqualTo Some(initialContent)
-        git.checkoutBranch("main")
-        git.get(path) isEqualTo Some(updatedContent)
+        git.get(somePath) isEqualTo Some(initialContent)
+        git.checkoutLabel(someLabel)
+        git.get(somePath) isEqualTo Some(updatedContent)
 
     class TestGit extends Git[TestObj, TestId, TestLabel, TestPath, TestMeta]:
         override protected val currentBranch: Head[TestLabel] =

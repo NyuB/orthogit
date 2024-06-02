@@ -6,7 +6,9 @@ import nyub.orthogit.git.StoredObjects.Tree
 import nyub.orthogit.git.StoredObjects.Commit
 
 trait Git[Obj, Id, Label, PathElement, Meta]:
+    opaque type BlobId = Id
     opaque type CommitId = Id
+    opaque type TreeId = Id
 
     protected def objectStorage
         : ObjectStorage[StoredObjects[Obj, Id, PathElement, Meta], Id]
@@ -72,11 +74,12 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
       * @return
       *   the commit associated with this id
       */
-    def show(
+    def getCommit(
         commitId: CommitId
-    ): StoredObjects.Commit[Obj, Id, PathElement, Meta] = // TODO define a proper api for such 'status' operations to avoid exposing low-level StoredObjects
+    ): this.Commit =
         objectStorage.get(commitId) match
-            case Some(c: StoredObjects.Commit[Obj, Id, PathElement, Meta]) => c
+            case Some(StoredObjects.Commit(parentId, treeId, meta)) =>
+                Commit(parentId, treeId, meta)
             case _ => ?!!
 
     /** Positions the current head at the commit indicated by `commitId`
@@ -214,22 +217,19 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
                 case t: StoredObjects.Tree[Obj, Id, PathElement, Meta] => t
             .getOrElse(?!!)
 
+    case class Commit(
+        val parentId: Option[CommitId],
+        val treeId: TreeId,
+        val meta: Meta
+    )
+
+    sealed trait TreeItem
+    case class TreeRef(val treeId: TreeId) extends TreeItem
+    case class Tree(val children: Map[PathElement, TreeItem]) extends TreeItem
+    case class Blob(val obj: Obj) extends TreeItem
+    case class BlobRef(val blobId: BlobId) extends TreeItem
+
 end Git
-
-sealed trait StoredObjects[Obj, Id, PathElement, Meta]
-object StoredObjects:
-    case class Blob[Obj, Id, PathElement, Meta](val obj: Obj)
-        extends StoredObjects[Obj, Id, PathElement, Meta]
-
-    case class Tree[Obj, Id, PathElement, Meta](
-        val childrenIds: Map[PathElement, Id]
-    ) extends StoredObjects[Obj, Id, PathElement, Meta]
-
-    case class Commit[Obj, Id, PathElement, Meta](
-        val parentId: Option[Id],
-        val treeId: Id,
-        val metadata: Meta
-    ) extends StoredObjects[Obj, Id, PathElement, Meta]
 
 trait Head[Id]:
     def get: Option[Id]

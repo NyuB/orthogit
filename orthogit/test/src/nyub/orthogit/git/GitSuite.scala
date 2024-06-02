@@ -29,8 +29,8 @@ class GitSuite extends munit.FunSuite with AssertExtensions:
         val commitId = git.commit(someMetadata)
 
         git.get(somePath) isEqualTo Some(someObject)
-        git.show(commitId) matches:
-            case StoredObjects.Commit(None, _, meta) =>
+        git.getCommit(commitId) matches:
+            case git.Commit(None, _, meta) =>
                 meta == someMetadata
 
     test("Add two objects with same path prefix, commit, get each object"):

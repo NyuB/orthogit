@@ -1,26 +1,22 @@
 package nyub.orthogit.git
 
 import nyub.assert.AssertExtensions
-import nyub.orthogit.id.Identifier
-import nyub.orthogit.id.Sha1.{deriveSha1Identifier, Sha1Id}
-import nyub.orthogit.git.StoredObjects.{Blob, Commit, Tree}
-import nyub.orthogit.storage.{LabelStorage, ObjectStorage}
 import scala.annotation
+import munit.diff.Printer
+import nyub.orthogit.id.Sha1
 
 @annotation.nowarn("msg=unused value")
 class GitSuite extends munit.FunSuite with AssertExtensions:
-    private type TestObj = String
-    private type TestPath = String
-    private type TestId = Sha1Id
-    private type TestLabel = String
-    private type TestMeta = String
     private val someMetadata: TestMeta = "Message"
     private val someObject: TestObj = "Object"
     private val somePath: ObjectPath[TestPath] =
         ObjectPath(Seq("leading"), "trailing.path")
 
     private val someLabel: TestLabel = "test-branch"
-    private val fileSha1 = deriveSha1Identifier[String]
+
+    override def printer: Printer = Printer:
+        case s: Seq[?] if s.size == 20 && s(0).isInstanceOf[Byte] =>
+            Sha1.ofBytes(s.asInstanceOf[Seq[Byte]]).hex
 
     test("Add one object, commit, retrieve object and commit metadata"):
         val git = TestGit()
@@ -128,46 +124,15 @@ class GitSuite extends munit.FunSuite with AssertExtensions:
         git.checkoutLabel(someLabel)
         git.getObject(somePath) isEqualTo Some(updatedContent)
 
-    class TestGit extends Git[TestObj, TestId, TestLabel, TestPath, TestMeta]:
-        override protected val currentBranch: Head[TestLabel] =
-            MutableOption[TestLabel]
+    test("Write an empty tree, get it back"):
+        val git = TestGit()
+        val treeId = git.writeTree(git.Tree(Map.empty))
+        git.getTree(treeId) isEqualTo git.Tree(Map.empty)
 
-        override protected val head: Head[TestId] = MutableOption[TestId]
-        override protected val labelStorage: LabelStorage[String, Sha1Id] =
-            LabelStorage.InMemory()
-
-        override protected val objectStorage: ObjectStorage[
-          StoredObjects[String, Sha1Id, String, TestMeta],
-          Sha1Id
-        ] =
-            ObjectStorage.InMemory(using TestIdentifier)()
-
-        private class MutableOption[T] extends Head[T]:
-            private var headPointer: Option[T] = None
-            override def get: Option[T] = headPointer
-            override def set(id: Option[T]): Unit = headPointer = id
-
-    object TestIdentifier
-        extends Identifier[
-          StoredObjects[TestObj, TestId, TestPath, TestMeta],
-          TestId
-        ]:
-
-        override def id(
-            obj: StoredObjects[TestObj, TestId, TestPath, TestMeta]
-        ): TestId =
-            obj match
-                case Blob(obj) => fileSha1.id(s"blob ${obj.length}\u0000${obj}")
-                case Tree(childrenIds) =>
-                    val cId = childrenIds.toList
-                        .sortBy(_._1)
-                        .foldLeft(fileSha1.id("").hex): (acc, item) =>
-                            val (path, objId) = item
-                            fileSha1.id(s"${acc}${path}/${objId}").hex
-                    fileSha1.id(s"tree ${cId}")
-                case Commit(parentId, treeId, msg) =>
-                    fileSha1.id(
-                      s"commit ${parentId.map(_.hex).getOrElse("none")} ${treeId.hex} ${msg}"
-                    )
+    test("Write an object at tree root, get it back"):
+        val git = TestGit()
+        val blobId = git.writeBlob(git.Blob(""))
+        val treeId = git.writeTree(git.Tree(Map("" -> git.BlobRef(blobId))))
+        git.getTree(treeId) isEqualTo git.Tree(Map("" -> git.BlobRef(blobId)))
 
 end GitSuite

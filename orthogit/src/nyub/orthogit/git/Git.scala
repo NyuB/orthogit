@@ -69,8 +69,26 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
         stagingArea.reset(StagingTree.stableTree(treeId))
         commitId
 
+    /** Stores a new commit object
+      * @param commit
+      *   the commit object to create
+      * @return
+      *   the id of the created commit
+      * @see
+      *   Git.writeTree
+      * @see
+      *   Git.writeBlob
+      */
+    def writeCommit(commit: this.Commit): CommitId =
+        val commitObject = StoredObjects.Commit[Obj, Id, PathElement, Meta](
+          commit.parentId,
+          commit.treeId,
+          commit.meta
+        )
+        objectStorage.store(commitObject)
+
     /** @param commitId
-      *   a commit id, e.g. retrieved from [[Git.commit]]
+      *   a commit id, e.g. retrieved from [[Git.commit]] or [[Git.writeCommit]]
       * @return
       *   the commit associated with this id
       */
@@ -81,6 +99,71 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
             case Some(StoredObjects.Commit(parentId, treeId, meta)) =>
                 Commit(parentId, treeId, meta)
             case _ => ?!!
+
+    /** Stores a new tree object
+      *
+      * Children that are not already stored [[TreeRef]] or [[BlobRef]] are
+      * stored recursively before the root
+      *
+      * @param tree
+      *   the object structure to store
+      * @return
+      *   the id of the stored tree
+      */
+    def writeTree(tree: this.Tree): TreeId =
+        val storedChildren = tree.children.map: (path, ref) =>
+            ref match
+                case TreeRef(treeId) => path -> treeId
+                case BlobRef(blobId) => path -> blobId
+                case t: Tree         => path -> writeTree(t)
+                case b: Blob         => path -> writeBlob(b)
+        val storedTree =
+            StoredObjects.Tree[Obj, Id, PathElement, Meta](storedChildren)
+        objectStorage.store(storedTree)
+
+    /** @param treeId
+      *   a tree id, e.g. retrieved from a [[Commit]] or another [[Tree]]
+      * @return
+      *   the tree associated with this id
+      */
+    def getTree(treeId: TreeId): this.Tree =
+        objectStorage
+            .get(treeId)
+            .collect:
+                case StoredObjects.Tree[Obj, Id, PathElement, Meta](children) =>
+                    val mapped = children.view
+                        .mapValues(id => id -> objectStorage.get(id))
+                        .mapValues:
+                            case id -> Some(StoredObjects.Blob(_)) =>
+                                BlobRef(id)
+                            case id -> Some(StoredObjects.Tree(_)) =>
+                                TreeRef(id)
+                            case _ => ?!!
+                    Tree(mapped.toMap)
+            .getOrElse(?!!)
+
+    /** Stores a new blob object
+      *
+      * @param blob
+      *   the blob to store
+      * @return
+      *   the id of the stored blob
+      */
+    def writeBlob(blob: Blob): BlobId =
+        objectStorage.store(
+          StoredObjects.Blob[Obj, Id, PathElement, Meta](blob.obj)
+        )
+
+    /** @param blobId
+      * @return
+      */
+    def getBlob(blobId: BlobId): this.Blob =
+        objectStorage
+            .get(blobId)
+            .collect:
+                case StoredObjects.Blob[Obj, Id, PathElement, Meta](obj) =>
+                    Blob(obj)
+            .getOrElse(?!!)
 
     /** Positions the current head at the commit indicated by `commitId`
       *
@@ -221,13 +304,15 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
         val parentId: Option[CommitId],
         val treeId: TreeId,
         val meta: Meta
-    )
+    ) derives CanEqual
 
     sealed trait TreeItem
-    case class TreeRef(val treeId: TreeId) extends TreeItem
+    case class TreeRef(val treeId: TreeId) extends TreeItem derives CanEqual
     case class Tree(val children: Map[PathElement, TreeItem]) extends TreeItem
-    case class Blob(val obj: Obj) extends TreeItem
-    case class BlobRef(val blobId: BlobId) extends TreeItem
+        derives CanEqual
+
+    case class Blob(val obj: Obj) extends TreeItem derives CanEqual
+    case class BlobRef(val blobId: BlobId) extends TreeItem derives CanEqual
 
 end Git
 

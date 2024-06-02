@@ -138,7 +138,7 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
       *   - There is no object at this path in the current tree
       *   - The current head is not pointing to any commit
       */
-    def get(objectPath: ObjectPath[PathElement]): Option[Obj] =
+    def getObject(objectPath: ObjectPath[PathElement]): Option[Obj] =
         get(getHeadTree, objectPath)
 
     /** @return

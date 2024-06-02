@@ -28,7 +28,7 @@ class GitSuite extends munit.FunSuite with AssertExtensions:
         git.add(StagedObject(somePath, someObject))
         val commitId = git.commit(someMetadata)
 
-        git.get(somePath) isEqualTo Some(someObject)
+        git.getObject(somePath) isEqualTo Some(someObject)
         git.getCommit(commitId) matches:
             case git.Commit(None, _, meta) =>
                 meta == someMetadata
@@ -44,8 +44,8 @@ class GitSuite extends munit.FunSuite with AssertExtensions:
         git.add(StagedObject(pathB, b))
         git.commit(someMetadata)
 
-        git.get(pathA) isEqualTo Some(a)
-        git.get(pathB) isEqualTo Some(b)
+        git.getObject(pathA) isEqualTo Some(a)
+        git.getObject(pathB) isEqualTo Some(b)
 
     test("Add two objects in two successive commits, get each object"):
         val git = TestGit()
@@ -59,8 +59,8 @@ class GitSuite extends munit.FunSuite with AssertExtensions:
         git.add(StagedObject(pathB, b))
         git.commit(someMetadata)
 
-        git.get(pathA) isEqualTo Some(a)
-        git.get(pathB) isEqualTo Some(b)
+        git.getObject(pathA) isEqualTo Some(a)
+        git.getObject(pathB) isEqualTo Some(b)
 
     test("Staging area contains path after add"):
         val git = TestGit()
@@ -103,11 +103,11 @@ class GitSuite extends munit.FunSuite with AssertExtensions:
         git.add(StagedObject(somePath, updatedContent))
         val secondCommit = git.commit(someMetadata)
 
-        git.get(somePath) isEqualTo Some(updatedContent)
+        git.getObject(somePath) isEqualTo Some(updatedContent)
         git.checkout(initialCommit)
-        git.get(somePath) isEqualTo Some(initialContent)
+        git.getObject(somePath) isEqualTo Some(initialContent)
         git.checkout(secondCommit)
-        git.get(somePath) isEqualTo Some(updatedContent)
+        git.getObject(somePath) isEqualTo Some(updatedContent)
 
     test(
       "Commit version#1, make branch, commit version #2, checkout version#1, checkout branch, get version#2"
@@ -124,9 +124,9 @@ class GitSuite extends munit.FunSuite with AssertExtensions:
         git.commit(someMetadata)
 
         git.checkout(initialCommit)
-        git.get(somePath) isEqualTo Some(initialContent)
+        git.getObject(somePath) isEqualTo Some(initialContent)
         git.checkoutLabel(someLabel)
-        git.get(somePath) isEqualTo Some(updatedContent)
+        git.getObject(somePath) isEqualTo Some(updatedContent)
 
     class TestGit extends Git[TestObj, TestId, TestLabel, TestPath, TestMeta]:
         override protected val currentBranch: Head[TestLabel] =

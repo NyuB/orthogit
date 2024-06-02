@@ -8,7 +8,10 @@ case class StagedObject[PathElement, Obj](
 type GetStableChildren[PathElement, Obj, Id] =
     Id => Map[PathElement, StagingTree.StableTree[PathElement, Obj, Id]]
 
-final private class StagingArea[PathElement, Obj, Id](
+/** TODO decouple [[Git]] from this, extract interface agnostic of
+  * [[StagingTree]]
+  */
+final private class InMemoryStagingArea[PathElement, Obj, Id](
     private var root: StagingTree.StagingNode[PathElement, Obj, Id],
     val getStableChildren: GetStableChildren[PathElement, Obj, Id]
 ):

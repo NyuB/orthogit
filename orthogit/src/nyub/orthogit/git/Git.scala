@@ -17,13 +17,15 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
 
     protected def currentBranch: Head[Label]
 
-    final private lazy val stagingArea = initStagingArea
+    /** @todo extract agnostic interface and delegate to trait implementers */
+    final private lazy val stagingArea
+        : InMemoryStagingArea[PathElement, Obj, Id] = initStagingArea
 
-    private def initStagingArea: StagingArea[PathElement, Obj, Id] =
+    private def initStagingArea: InMemoryStagingArea[PathElement, Obj, Id] =
         val root = headTreeId
             .map(StagingTree.stableTree[PathElement, Obj, Id])
             .getOrElse(StagingTree.emptyRoot[PathElement, Obj, Id])
-        StagingArea(root, unsafeGetStagingChildren)
+        InMemoryStagingArea(root, unsafeGetStagingChildren)
 
     /** Stages `obj`, adding it to the bulk of objects that would be part of a
       * [[Git.commit]]. If there is already a staged object at this path, it

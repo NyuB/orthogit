@@ -42,8 +42,7 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
       * Additional side effects:
       *   - Clears the staging area
       *   - Updates the current branch to point to the created commit
-      *   - Updates the current
-      * head to point to the created commit
+      *   - Updates the current head to point to the created commit
       * @param meta
       *   the metadata to associate with this commit
       * @return
@@ -131,7 +130,7 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
       * @param objectPath
       *   the path to the desired object
       * @return
-      *   `Some(obj)` if `obj` is indeed present ath this path in the current
+      *   `Some(obj)` if `obj` is indeed present at this path in the current
       *   tree, or `None` if:
       *   - There is no object at this path in the current tree
       *   - The current head is not pointing to any commit

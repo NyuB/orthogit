@@ -1,19 +1,19 @@
 package nyub.orthogit.git
 
-case class StagedObject[PathElement, Obj](
-    val path: ObjectPath[PathElement],
-    val obj: Obj
-)
-
-type GetStableChildren[PathElement, Obj, Id] =
-    Id => Map[PathElement, StagingTree.StableTree[PathElement, Obj, Id]]
+object InMemoryStagingArea:
+    type GetStableChildren[PathElement, Obj, Id] =
+        Id => Map[PathElement, StagingTree.StableTree[PathElement, Obj, Id]]
 
 /** TODO decouple [[Git]] from this, extract interface agnostic of
   * [[StagingTree]]
   */
 final private class InMemoryStagingArea[PathElement, Obj, Id](
     private var root: StagingTree.StagingNode[PathElement, Obj, Id],
-    val getStableChildren: GetStableChildren[PathElement, Obj, Id]
+    val getStableChildren: InMemoryStagingArea.GetStableChildren[
+      PathElement,
+      Obj,
+      Id
+    ]
 ):
     def update(so: StagedObject[PathElement, Obj]): Unit =
         root = root.toNode(getStableChildren).updated(so, getStableChildren)
@@ -50,7 +50,11 @@ private object StagingTree:
     sealed trait StagingNode[PathElement, Obj, Id]
         extends StagingTree[PathElement, Obj, Id]:
         def toNode(
-            getStableChildren: GetStableChildren[PathElement, Obj, Id]
+            getStableChildren: InMemoryStagingArea.GetStableChildren[
+              PathElement,
+              Obj,
+              Id
+            ]
         ): Node[PathElement, Obj, Id]
 
         def stagedLeaves: Seq[ObjectPath[PathElement]]
@@ -72,7 +76,11 @@ private object StagingTree:
     ) extends StableTree[PathElement, Obj, Id]
         with StagingNode[PathElement, Obj, Id]:
         override def toNode(
-            getStableChildren: GetStableChildren[PathElement, Obj, Id]
+            getStableChildren: InMemoryStagingArea.GetStableChildren[
+              PathElement,
+              Obj,
+              Id
+            ]
         ): Node[PathElement, Obj, Id] =
             Node(getStableChildren(id))
 
@@ -93,7 +101,10 @@ private object StagingTree:
         val children: Map[PathElement, StagingTree[PathElement, Obj, Id]]
     ) extends StagedTree[PathElement, Obj, Id]
         with StagingNode[PathElement, Obj, Id]:
-        override def toNode(g: GetStableChildren[PathElement, Obj, Id]) = this
+        override def toNode(
+            g: InMemoryStagingArea.GetStableChildren[PathElement, Obj, Id]
+        ) = this
+
         override def store(
             storeObj: Obj => Id,
             storeTree: Map[PathElement, Id] => Id
@@ -104,7 +115,11 @@ private object StagingTree:
 
         def remove(
             path: ObjectPath[PathElement],
-            getStableChildren: GetStableChildren[PathElement, Obj, Id]
+            getStableChildren: InMemoryStagingArea.GetStableChildren[
+              PathElement,
+              Obj,
+              Id
+            ]
         ): Node[PathElement, Obj, Id] =
             if path.path.isEmpty then Node(children.removed(path.name))
             else
@@ -137,7 +152,11 @@ private object StagingTree:
 
         def updated(
             obj: StagedObject[PathElement, Obj],
-            getStableChildren: GetStableChildren[PathElement, Obj, Id]
+            getStableChildren: InMemoryStagingArea.GetStableChildren[
+              PathElement,
+              Obj,
+              Id
+            ]
         ): Node[PathElement, Obj, Id] =
             if obj.path.path.isEmpty then
                 Node(this.children.updated(obj.path.name, Leaf(obj.obj)))

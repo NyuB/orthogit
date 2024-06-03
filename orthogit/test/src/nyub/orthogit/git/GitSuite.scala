@@ -26,7 +26,7 @@ class GitSuite extends munit.FunSuite with AssertExtensions:
 
         git.getObject(somePath) isEqualTo Some(someObject)
         git.getCommit(commitId) matches:
-            case git.Commit(None, _, meta) =>
+            case git.Commit(Seq(), _, meta) =>
                 meta == someMetadata
 
     test("Add two objects with same path prefix, commit, get each object"):

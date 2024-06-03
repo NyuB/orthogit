@@ -21,7 +21,7 @@ object GitObjectEncoding:
         case Blob(content: Seq[Byte])
         case Commit(
             treeId: Sha1Id,
-            parents: Seq[Sha1Id],
+            parentIds: Seq[Sha1Id],
             author: CommitterInfo,
             committer: CommitterInfo,
             message: String
@@ -74,7 +74,7 @@ object GitObjectEncoding:
         else ???
 
     private def parseCommit(content: Seq[Byte]): GitObject.Commit =
-        val parents = ArrayBuffer[Sha1Id]()
+        val parentIds = ArrayBuffer[Sha1Id]()
         val index = ParsingIndex(content)
         index.skipPrefix(TREE_PREFIX)
         val treeId = index.readHexSha1()
@@ -82,14 +82,14 @@ object GitObjectEncoding:
 
         while index.startsWith(PARENT_PREFIX) do
             index.skipPrefix(PARENT_PREFIX)
-            parents.addOne(index.readHexSha1())
+            parentIds.addOne(index.readHexSha1())
             index.skipMarker(LF)
 
         val author = index.readAuthor()
         val commiter = index.readCommiter()
         index.skipMarker(LF)
         val message = index.readRemaining().utf8
-        GitObject.Commit(treeId, parents.toSeq, author, commiter, message)
+        GitObject.Commit(treeId, parentIds.toSeq, author, commiter, message)
 
     private def parseTree(content: Seq[Byte]): GitObject.Tree =
         val entries = ArrayBuffer[TreeEntry]()

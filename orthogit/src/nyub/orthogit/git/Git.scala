@@ -59,7 +59,7 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
         )
         val commitObject =
             StoredObjects.Commit[Obj, Id, PathElement, Meta](
-              head.get,
+              head.get.toList,
               treeId,
               meta
             )
@@ -81,7 +81,7 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
       */
     def writeCommit(commit: this.Commit): CommitId =
         val commitObject = StoredObjects.Commit[Obj, Id, PathElement, Meta](
-          commit.parentId,
+          commit.parentIds,
           commit.treeId,
           commit.meta
         )
@@ -301,7 +301,7 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
             .getOrElse(?!!)
 
     case class Commit(
-        val parentId: Option[CommitId],
+        val parentIds: Seq[CommitId],
         val treeId: TreeId,
         val meta: Meta
     ) derives CanEqual

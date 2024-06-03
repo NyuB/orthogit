@@ -10,7 +10,7 @@ object StoredObjects:
     ) extends StoredObjects[Obj, Id, PathElement, Meta]
 
     case class Commit[Obj, Id, PathElement, Meta](
-        val parentId: Option[Id],
+        val parentIds: Seq[Id],
         val treeId: Id,
         val metadata: Meta
     ) extends StoredObjects[Obj, Id, PathElement, Meta]

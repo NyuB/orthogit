@@ -48,10 +48,10 @@ class GitProperties
                 val secondTree = git.ofTreeGen(t2)
                 val secondTreeId = git.writeTree(secondTree)
 
-                val firstCommit = git.Commit(None, firstTreeId, msg1)
+                val firstCommit = git.Commit(Seq.empty, firstTreeId, msg1)
                 val firstCommitId = git.writeCommit(firstCommit)
                 val secondCommit =
-                    git.Commit(Some(firstCommitId), secondTreeId, msg2)
+                    git.Commit(Seq(firstCommitId), secondTreeId, msg2)
                 val secondCommitId = git.writeCommit(secondCommit)
 
                 val firstGet = git.getCommit(firstCommitId)

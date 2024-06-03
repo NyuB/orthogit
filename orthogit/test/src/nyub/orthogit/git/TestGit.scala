@@ -52,7 +52,12 @@ object TestIdentifier
                         val (path, objId) = item
                         stringSha1.id(s"${acc}${path}/${objId}").hex
                 stringSha1.id(s"tree ${cId}")
-            case Commit(parentId, treeId, msg) =>
+            case Commit(parentIds, treeId, msg) =>
+                val pId = parentIds
+                    .map(_.hex)
+                    .sorted
+                    .foldLeft(stringSha1.id("").hex): (acc, item) =>
+                        stringSha1.id(s"${acc}${item}").hex
                 stringSha1.id(
-                  s"commit ${parentId.map(_.hex).getOrElse("none")} ${treeId.hex} ${msg}"
+                  s"commit ${pId} ${treeId.hex} ${msg}"
                 )

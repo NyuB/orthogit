@@ -57,13 +57,15 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
           o => objectStorage.store(StoredObjects.Blob(o)),
           t => objectStorage.store(StoredObjects.Tree(t))
         )
-        val commitObject =
-            StoredObjects.Commit[Obj, Id, PathElement, Meta](
-              head.get.toList,
-              treeId,
-              meta
-            )
-        val commitId = objectStorage.store(commitObject)
+
+        val commitId = objectStorage.store(
+          StoredObjects.Commit(
+            head.get.toList,
+            treeId,
+            meta
+          )
+        )
+
         head.set(Some(commitId))
         updateBranch(commitId)
         stagingArea.reset(StagingTree.stableTree(treeId))
@@ -80,12 +82,13 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
       *   Git.writeBlob
       */
     def writeCommit(commit: this.Commit): CommitId =
-        val commitObject = StoredObjects.Commit[Obj, Id, PathElement, Meta](
-          commit.parentIds,
-          commit.treeId,
-          commit.meta
+        objectStorage.store(
+          StoredObjects.Commit(
+            commit.parentIds,
+            commit.treeId,
+            commit.meta
+          )
         )
-        objectStorage.store(commitObject)
 
     /** @param commitId
       *   a commit id, e.g. retrieved from [[Git.commit]] or [[Git.writeCommit]]
@@ -118,7 +121,7 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
                 case t: Tree         => path -> writeTree(t)
                 case b: Blob         => path -> writeBlob(b)
         val storedTree =
-            StoredObjects.Tree[Obj, Id, PathElement, Meta](storedChildren)
+            StoredObjects.Tree[Id, PathElement](storedChildren)
         objectStorage.store(storedTree)
 
     /** @param treeId
@@ -130,7 +133,7 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
         objectStorage
             .get(treeId)
             .collect:
-                case StoredObjects.Tree[Obj, Id, PathElement, Meta](children) =>
+                case StoredObjects.Tree[Id, PathElement](children) =>
                     val mapped = children.view
                         .mapValues(id => id -> objectStorage.get(id))
                         .mapValues:
@@ -151,7 +154,7 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
       */
     def writeBlob(blob: Blob): BlobId =
         objectStorage.store(
-          StoredObjects.Blob[Obj, Id, PathElement, Meta](blob.obj)
+          StoredObjects.Blob(blob.obj)
         )
 
     /** @param blobId
@@ -161,7 +164,7 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
         objectStorage
             .get(blobId)
             .collect:
-                case StoredObjects.Blob[Obj, Id, PathElement, Meta](obj) =>
+                case StoredObjects.Blob(obj) =>
                     Blob(obj)
             .getOrElse(?!!)
 
@@ -230,7 +233,7 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
     def staged: Seq[ObjectPath[PathElement]] = stagingArea.staged
 
     private def get(
-        tree: StoredObjects.Tree[Obj, Id, PathElement, Meta],
+        tree: StoredObjects.Tree[Id, PathElement],
         objectPath: ObjectPath[PathElement]
     ): Option[Obj] =
         if objectPath.isLeaf then
@@ -244,21 +247,21 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
                 .get(objectPath.head)
                 .flatMap(objectStorage.get)
                 .collect:
-                    case t: StoredObjects.Tree[Obj, Id, PathElement, Meta] => t
+                    case t: StoredObjects.Tree[_, _] => t
                 .flatMap(t => get(t, objectPath.tail))
 
     private def headTreeId: Option[Id] =
         head.get
             .flatMap(objectStorage.get)
             .collect:
-                case c: StoredObjects.Commit[Obj, Id, PathElement, Meta] =>
-                    c.treeId
+                case StoredObjects.Commit(_, treeId, _) =>
+                    treeId
 
-    private def getHeadTree: StoredObjects.Tree[Obj, Id, PathElement, Meta] =
+    private def getHeadTree: StoredObjects.Tree[Id, PathElement] =
         headTreeId
             .flatMap(objectStorage.get)
             .collect:
-                case t: StoredObjects.Tree[_, _, _, _] => t
+                case t: StoredObjects.Tree[Id, PathElement] => t
             .getOrElse(?!!)
 
     private def updateBranch(commitId: CommitId): Unit = currentBranch.get match
@@ -293,11 +296,11 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
 
     private def unsafeGetTree(
         treeId: Id
-    ): StoredObjects.Tree[Obj, Id, PathElement, Meta] =
+    ): StoredObjects.Tree[Id, PathElement] =
         objectStorage
             .get(treeId)
             .collect:
-                case t: StoredObjects.Tree[Obj, Id, PathElement, Meta] => t
+                case t: StoredObjects.Tree[Id, PathElement] => t
             .getOrElse(?!!)
 
     case class Commit(

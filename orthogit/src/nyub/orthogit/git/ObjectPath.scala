@@ -1,6 +1,6 @@
 package nyub.orthogit.git
 
-case class ObjectPath[PathElement](
+case class ObjectPath[+PathElement](
     val path: Seq[PathElement],
     val name: PathElement
 ) derives CanEqual:

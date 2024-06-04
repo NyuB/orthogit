@@ -1,16 +1,16 @@
 package nyub.orthogit.git
 
-sealed trait StoredObjects[Obj, Id, PathElement, Meta]
+sealed trait StoredObjects[+Obj, +Id, PathElement, +Meta]
 object StoredObjects:
-    case class Blob[Obj, Id, PathElement, Meta](val obj: Obj)
-        extends StoredObjects[Obj, Id, PathElement, Meta]
+    case class Blob[+Obj, PathElement](val obj: Obj)
+        extends StoredObjects[Obj, Nothing, PathElement, Nothing]
 
-    case class Tree[Obj, Id, PathElement, Meta](
+    case class Tree[+Id, PathElement](
         val childrenIds: Map[PathElement, Id]
-    ) extends StoredObjects[Obj, Id, PathElement, Meta]
+    ) extends StoredObjects[Nothing, Id, PathElement, Nothing]
 
-    case class Commit[Obj, Id, PathElement, Meta](
+    case class Commit[+Id, PathElement, Meta](
         val parentIds: Seq[Id],
         val treeId: Id,
         val metadata: Meta
-    ) extends StoredObjects[Obj, Id, PathElement, Meta]
+    ) extends StoredObjects[Nothing, Id, PathElement, Meta]

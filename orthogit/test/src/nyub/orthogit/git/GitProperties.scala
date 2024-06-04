@@ -30,7 +30,8 @@ class GitProperties
             val tree = git.ofTreeGen(t)
             val treeId = git.writeTree(tree)
             val back = git.getTree(treeId)
-            git.materializeTree(back) isEqualTo tree
+            val materialized = git.materializeTree(back)
+            materialized isEqualTo tree
 
     property("getCommit is the inverse of writeCommit"):
         given Arbitrary[TreeGenNode[String, String]] =

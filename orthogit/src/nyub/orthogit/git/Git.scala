@@ -4,11 +4,16 @@ import nyub.orthogit.storage.{LabelStorage, ObjectStorage}
 import nyub.orthogit.git.StoredObjects.Blob
 import nyub.orthogit.git.StoredObjects.Tree
 import nyub.orthogit.git.StoredObjects.Commit
+import nyub.orthogit.reftree.{RefLeaf, RefNode, RefTree, ValueLeaf, ValueNode}
 
 trait Git[Obj, Id, Label, PathElement, Meta]:
     opaque type BlobId = Id
     opaque type CommitId = Id
     opaque type TreeId = Id
+
+    given CanEqual[BlobId, BlobId] = CanEqual.derived
+    given CanEqual[CommitId, CommitId] = CanEqual.derived
+    given CanEqual[TreeId, TreeId] = CanEqual.derived
 
     protected def objectStorage
         : ObjectStorage[StoredObjects[Obj, Id, PathElement, Meta], Id]
@@ -118,7 +123,7 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
             ref match
                 case TreeRef(treeId) => path -> treeId
                 case BlobRef(blobId) => path -> blobId
-                case t: Tree         => path -> writeTree(t)
+                case Tree(c)         => path -> writeTree(Tree(c.toMap))
                 case b: Blob         => path -> writeBlob(b)
         val storedTree =
             StoredObjects.Tree[Id, PathElement](storedChildren)
@@ -138,9 +143,9 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
                         .mapValues(id => id -> objectStorage.get(id))
                         .mapValues:
                             case id -> Some(StoredObjects.Blob(_)) =>
-                                BlobRef(id)
+                                RefLeaf(id)
                             case id -> Some(StoredObjects.Tree(_)) =>
-                                TreeRef(id)
+                                RefNode(id)
                             case _ => ?!!
                     Tree(mapped.toMap)
             .getOrElse(?!!)
@@ -154,7 +159,7 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
       */
     def writeBlob(blob: Blob): BlobId =
         objectStorage.store(
-          StoredObjects.Blob(blob.obj)
+          StoredObjects.Blob(blob.value)
         )
 
     /** @param blobId
@@ -247,7 +252,7 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
                 .get(objectPath.head)
                 .flatMap(objectStorage.get)
                 .collect:
-                    case t: StoredObjects.Tree[_, _] => t
+                    case StoredObjects.Tree(c) => StoredObjects.Tree(c)
                 .flatMap(t => get(t, objectPath.tail))
 
     private def headTreeId: Option[Id] =
@@ -309,13 +314,20 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
         val meta: Meta
     ) derives CanEqual
 
-    sealed trait TreeItem
-    case class TreeRef(val treeId: TreeId) extends TreeItem derives CanEqual
-    case class Tree(val children: Map[PathElement, TreeItem]) extends TreeItem
-        derives CanEqual
+    // Alias generic RefTree
+    type TreeItem = RefTree[TreeId, BlobId, PathElement, Obj]
 
-    case class Blob(val obj: Obj) extends TreeItem derives CanEqual
-    case class BlobRef(val blobId: BlobId) extends TreeItem derives CanEqual
+    type TreeRef = RefNode[TreeId]
+    val TreeRef = RefNode
+
+    type Tree = ValueNode[TreeId, BlobId, PathElement, Obj]
+    val Tree = ValueNode
+
+    type Blob = ValueLeaf[Obj]
+    val Blob = ValueLeaf
+
+    type BlobRef = RefLeaf[BlobId]
+    val BlobRef = RefLeaf
 
 end Git
 

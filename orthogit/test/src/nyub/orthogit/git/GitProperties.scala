@@ -5,6 +5,7 @@ import nyub.assert.PropertiesExtensions
 import org.scalacheck.Arbitrary
 import org.scalacheck.Gen
 import org.scalacheck.Prop.forAll
+import nyub.assert.generators.{TreeGen, TreeGenLeaf, TreeGenNode}
 
 class GitProperties
     extends munit.ScalaCheckSuite
@@ -78,76 +79,5 @@ class GitProperties
                     case TreeGenLeaf(value)             => git.Blob(value)
                 .toMap
             git.Tree(children)
-
-    enum TreeGenCommand[Edge, Leaf]:
-        case MakeLeaf(edge: Edge, leaf: Leaf)
-        case MakeEdge(edge: Edge)
-
-    sealed trait TreeGen[Edge, Leaf]
-    case class TreeGenNode[Edge, Leaf](
-        val children: scala.collection.mutable.Map[Edge, TreeGen[Edge, Leaf]]
-    ) extends TreeGen[Edge, Leaf]
-
-    case class TreeGenLeaf[Edge, Leaf](val value: Leaf)
-        extends TreeGen[Edge, Leaf]
-
-    object TreeGen:
-        def treeGen[Edge, Leaf](using
-            edgeGen: Arbitrary[Edge],
-            leafGen: Arbitrary[Leaf]
-        ): Gen[TreeGenNode[Edge, Leaf]] =
-            val commands = Gen.frequency(
-              5 -> leafCommandGen[Edge, Leaf],
-              1 -> edgeCommandGen[Edge, Leaf]
-            )
-            Gen.listOf(commands).map(TreeGen.fromCommands)
-
-        def leafCommandGen[Edge, Leaf](using
-            edgeGen: Arbitrary[Edge],
-            leafGen: Arbitrary[Leaf]
-        ): Gen[TreeGenCommand[Edge, Leaf]] =
-            edgeGen.arbitrary.flatMap: e =>
-                leafGen.arbitrary.map: l =>
-                    TreeGenCommand.MakeLeaf(e, l)
-
-        def edgeCommandGen[Edge, Leaf](using
-            edgeGen: Arbitrary[Edge]
-        ): Gen[TreeGenCommand[Edge, Leaf]] =
-            edgeGen.arbitrary.map: e =>
-                TreeGenCommand.MakeEdge(e)
-
-        def empty[Edge, Leaf](): TreeGenNode[Edge, Leaf] = TreeGenNode(
-          scala.collection.mutable.Map.empty
-        )
-
-        def fromCommands[Edge, Leaf](
-            commands: Iterable[TreeGenCommand[Edge, Leaf]]
-        ): TreeGenNode[Edge, Leaf] =
-            val start = empty[Edge, Leaf]()
-            commands
-                .foldLeft(TreeGenCursor(start, start)): (acc, command) =>
-                    command match
-                        case TreeGenCommand.MakeLeaf(edge, leaf) =>
-                            acc.leaf(edge, leaf)
-                        case TreeGenCommand.MakeEdge(edge) => acc.node(edge)
-                .root
-
-    class TreeGenCursor[Edge, Leaf](
-        val root: TreeGenNode[Edge, Leaf],
-        var cursor: TreeGenNode[Edge, Leaf]
-    ):
-        type Self = TreeGenCursor[Edge, Leaf]
-        def leaf(edge: Edge, value: Leaf): Self =
-            this.cursor.children.update(edge, TreeGenLeaf(value))
-            this
-
-        def node(edge: Edge): Self =
-            val next = this.cursor.children.getOrElseUpdate(
-              edge,
-              TreeGenNode[Edge, Leaf](scala.collection.mutable.Map.empty)
-            )
-            next match
-                case t: TreeGenNode[Edge, Leaf] => TreeGenCursor(root, t)
-                case l: TreeGenLeaf[Edge, Leaf] => this
 
 end GitProperties

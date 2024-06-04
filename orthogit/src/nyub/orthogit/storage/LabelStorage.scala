@@ -1,5 +1,7 @@
 package nyub.orthogit.storage
 
+/** Mutable key/value store
+  */
 trait LabelStorage[Label, Obj]:
     def delete(label: Label): Option[Obj]
     def set(label: Label, obj: Obj): Unit

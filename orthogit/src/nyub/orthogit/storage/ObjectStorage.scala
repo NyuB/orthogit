@@ -2,6 +2,9 @@ package nyub.orthogit.storage
 
 import nyub.orthogit.id.Identifier
 
+/** Mutable Key/value store where key generation is handled by the storage.
+  * Should generate the same id for two equal objects.
+  */
 trait ObjectStorage[Obj, Id]:
     def store(obj: Obj): Id
     def get(id: Id): Option[Obj]

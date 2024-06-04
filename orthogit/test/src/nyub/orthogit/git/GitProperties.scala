@@ -6,6 +6,8 @@ import org.scalacheck.Arbitrary
 import org.scalacheck.Gen
 import org.scalacheck.Prop.forAll
 import nyub.assert.generators.{TreeGen, TreeGenLeaf, TreeGenNode}
+import nyub.orthogit.reftree.ValueNode
+import nyub.orthogit.reftree.ValueLeaf
 
 class GitProperties
     extends munit.ScalaCheckSuite
@@ -20,38 +22,33 @@ class GitProperties
         given Arbitrary[git.Blob] =
             Arbitrary(Gen.asciiPrintableStr.map(git.Blob(_)))
 
+        // NB: all the writes are performed on the same mutable git instance
         git.getBlob isTheInverseOf git.writeBlob
 
     property("getTree is the inverse of writeTree"):
-        given Arbitrary[TreeGenNode[String, String]] =
-            Arbitrary(TreeGen.treeGen)
-        forAll: (t: TreeGenNode[String, String]) =>
+        forAll: (tree: ValueNode[Nothing, Nothing, String, String]) =>
             val git = TestGit()
-            val tree = git.ofTreeGen(t)
             val treeId = git.writeTree(tree)
             val back = git.getTree(treeId)
             val materialized = git.materializeTree(back)
             materialized isEqualTo tree
 
     property("getCommit is the inverse of writeCommit"):
-        given Arbitrary[TreeGenNode[String, String]] =
-            Arbitrary(TreeGen.treeGen)
         forAll:
             (
-                t1: TreeGenNode[String, String],
-                t2: TreeGenNode[String, String],
+                firstTree: ValueNode[Nothing, Nothing, String, String],
+                secondTree: ValueNode[Nothing, Nothing, String, String],
                 msg1: String,
                 msg2: String
             ) =>
                 val git = TestGit()
-                val firstTree = git.ofTreeGen(t1)
-                val firstTreeId = git.writeTree(firstTree)
 
-                val secondTree = git.ofTreeGen(t2)
+                val firstTreeId = git.writeTree(firstTree)
                 val secondTreeId = git.writeTree(secondTree)
 
                 val firstCommit = git.Commit(Seq.empty, firstTreeId, msg1)
                 val firstCommitId = git.writeCommit(firstCommit)
+
                 val secondCommit =
                     git.Commit(Seq(firstCommitId), secondTreeId, msg2)
                 val secondCommitId = git.writeCommit(secondCommit)
@@ -61,6 +58,10 @@ class GitProperties
 
                 firstGet isEqualTo firstCommit
                 secondGet isEqualTo secondCommit
+
+    given gitTreeGenerator
+        : Arbitrary[ValueNode[Nothing, Nothing, String, String]] =
+        Arbitrary(TreeGen.treeGen[String, String].map(gitTreeOfTreeGen))
 
     extension (git: TestGit)
         private def materializeTree(tree: git.Tree): git.Tree =
@@ -73,12 +74,14 @@ class GitProperties
                 .toMap
             git.Tree(materializedChildren)
 
-        private def ofTreeGen(gen: TreeGenNode[String, String]): git.Tree =
-            val children = gen.children.view
-                .mapValues:
-                    case t: TreeGenNode[String, String] => git.ofTreeGen(t)
-                    case TreeGenLeaf(value)             => git.Blob(value)
-                .toMap
-            git.Tree(children)
+    private def gitTreeOfTreeGen(
+        gen: TreeGenNode[String, String]
+    ): ValueNode[Nothing, Nothing, String, String] =
+        val children = gen.children.view
+            .mapValues:
+                case t: TreeGenNode[String, String] => gitTreeOfTreeGen(t)
+                case TreeGenLeaf(value)             => ValueLeaf(value)
+            .toMap
+        ValueNode(children)
 
 end GitProperties

@@ -1,4 +1,4 @@
 package nyub.orthogit.id
 
-trait Identifier[Obj, Id]:
+trait Identifier[-Obj, Id]:
     def id(obj: Obj): Id

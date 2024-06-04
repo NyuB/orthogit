@@ -18,9 +18,6 @@ final private class InMemoryStagingArea[PathElement, Obj, Id](
     def update(so: StagedObject[PathElement, Obj]): Unit =
         root = root.toNode(getStableChildren).updated(so, getStableChildren)
 
-    def remove(so: ObjectPath[PathElement]) =
-        root = root.toNode(getStableChildren).remove(so, getStableChildren)
-
     def reset(newRoot: StagingTree.StagingNode[PathElement, Obj, Id]): Unit =
         root = newRoot
 
@@ -112,43 +109,6 @@ private object StagingTree:
             val tree =
                 this.children.view.mapValues(_.store(storeObj, storeTree)).toMap
             storeTree(tree)
-
-        def remove(
-            path: ObjectPath[PathElement],
-            getStableChildren: InMemoryStagingArea.GetStableChildren[
-              PathElement,
-              Obj,
-              Id
-            ]
-        ): Node[PathElement, Obj, Id] =
-            if path.path.isEmpty then Node(children.removed(path.name))
-            else
-                val pathHead = path.path.head
-                children.get(pathHead) match
-                    case None                => this
-                    case Some(Leaf(_))       => this
-                    case Some(StableLeaf(_)) => this
-                    case Some(t: Node[PathElement, Obj, Id]) =>
-                        Node(
-                          children.updated(
-                            path.head,
-                            t.remove(
-                              ObjectPath(path.path.tail, path.name),
-                              getStableChildren
-                            )
-                          )
-                        )
-                    case Some(t: StableNode[PathElement, Obj, Id]) =>
-                        Node(
-                          children.updated(
-                            path.head,
-                            t.toNode(getStableChildren)
-                                .remove(
-                                  ObjectPath(path.path.tail, path.name),
-                                  getStableChildren
-                                )
-                          )
-                        )
 
         def updated(
             obj: StagedObject[PathElement, Obj],

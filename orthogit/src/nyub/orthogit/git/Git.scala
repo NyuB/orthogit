@@ -138,7 +138,7 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
         objectStorage
             .get(treeId)
             .collect:
-                case StoredObjects.Tree[Id, PathElement](children) =>
+                case StoredObjects.Tree(children) =>
                     val mapped = children.view
                         .mapValues(id => id -> objectStorage.get(id))
                         .mapValues:
@@ -252,7 +252,7 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
                 .get(objectPath.head)
                 .flatMap(objectStorage.get)
                 .collect:
-                    case StoredObjects.Tree(c) => StoredObjects.Tree(c)
+                    case StoredObjects.Tree(c) => StoredObjects.Tree(c.toMap)
                 .flatMap(t => get(t, objectPath.tail))
 
     private def headTreeId: Option[Id] =
@@ -266,7 +266,7 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
         headTreeId
             .flatMap(objectStorage.get)
             .collect:
-                case t: StoredObjects.Tree[Id, PathElement] => t
+                case StoredObjects.Tree(c) => StoredObjects.Tree(c.toMap)
             .getOrElse(?!!)
 
     private def updateBranch(commitId: CommitId): Unit = currentBranch.get match
@@ -305,7 +305,7 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
         objectStorage
             .get(treeId)
             .collect:
-                case t: StoredObjects.Tree[Id, PathElement] => t
+                case StoredObjects.Tree(c) => StoredObjects.Tree(c.toMap)
             .getOrElse(?!!)
 
     case class Commit(

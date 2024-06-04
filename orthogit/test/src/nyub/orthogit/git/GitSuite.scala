@@ -63,6 +63,51 @@ class GitSuite extends munit.FunSuite with AssertExtensions:
         git.add(StagedObject(somePath, someObject))
         git.staged isEqualTo Seq(somePath)
 
+    test(
+      "Adding two object with the same path erases the first one from staged"
+    ):
+        val git = TestGit()
+        val a = "AAA"
+        val b = "BBB"
+        git.add(StagedObject(somePath, a))
+        git.add(StagedObject(somePath, b))
+
+        git.staged isEqualTo Seq(somePath)
+        git.commit(someMetadata)
+        git.getObject(somePath) isEqualTo Some(b)
+
+    test(
+      "Adding two object with the second object path included in the first one erases the first one from staged"
+    ):
+        val git = TestGit()
+        val a = "AAA"
+        val b = "BBB"
+        val pathA = ObjectPath(Seq.empty, "a")
+        val pathB = ObjectPath(Seq("a"), "b")
+        git.add(StagedObject(pathA, a))
+        git.add(StagedObject(pathB, b))
+
+        git.staged isEqualTo Seq(pathB)
+        git.commit(someMetadata)
+        git.getObject(pathA) isEqualTo None
+        git.getObject(pathB) isEqualTo Some(b)
+
+    test(
+      "Adding two object with the first object path included in the second one erases the first one from staged"
+    ):
+        val git = TestGit()
+        val a = "AAA"
+        val b = "BBB"
+        val pathA = ObjectPath(Seq("a"), "b")
+        val pathB = ObjectPath(Seq.empty, "a")
+        git.add(StagedObject(pathA, a))
+        git.add(StagedObject(pathB, b))
+
+        git.staged isEqualTo Seq(pathB)
+        git.commit(someMetadata)
+        git.getObject(pathA) isEqualTo None
+        git.getObject(pathB) isEqualTo Some(b)
+
     test("Staging area is empty after commit"):
         val git = TestGit()
         git.add(StagedObject(somePath, someObject))

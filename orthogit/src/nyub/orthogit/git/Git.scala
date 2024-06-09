@@ -28,10 +28,7 @@ trait Git[Obj, Id, Label, PathElement, Meta](using
 
     protected def currentBranch: Head[Label]
 
-    /** @todo delegate to trait implementers */
-    final private val stagingArea
-        : StagingArea[TreeId, BlobId, PathElement, Obj] =
-        InMemoryStagingArea[TreeId, BlobId, PathElement, Obj]()
+    protected def stagingArea: StagingArea[TreeId, BlobId, PathElement, Obj]
 
     /** Stages `obj`, adding it to the bulk of objects that would be part of a
       * [[Git.commit]]. If there is already a staged object at this path, it
@@ -60,7 +57,6 @@ trait Git[Obj, Id, Label, PathElement, Meta](using
         val currentTree = headTreeId.map(TreeRef(_)).getOrElse(Tree(Map.empty))
         val updated = stagingArea.staged.foldLeft(currentTree): (t, s) =>
             t.insert(s.path.name, s.path.path, s.obj, getTreeChildren)
-        println(s"Full tree = ${updated}")
         val treeId = updated.compress(
           o => objectStorage.store(StoredObjects.Blob(o)),
           t =>

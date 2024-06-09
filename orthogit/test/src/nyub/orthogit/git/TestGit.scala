@@ -27,6 +27,10 @@ class TestGit extends Git[TestObj, TestId, TestLabel, TestPath, TestMeta]:
     ] =
         ObjectStorage.InMemory(using TestIdentifier)()
 
+    override protected val stagingArea
+        : StagingArea[TreeId, BlobId, TestPath, TestObj] =
+        StagingArea.InMemory[TreeId, BlobId, TestPath, TestObj]()
+
     private class MutableOption[T] extends Head[T]:
         private var headPointer: Option[T] = None
         override def get: Option[T] = headPointer

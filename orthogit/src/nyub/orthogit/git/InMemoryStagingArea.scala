@@ -3,8 +3,9 @@ package nyub.orthogit.git
 import nyub.orthogit.reftree.RefTree
 import scala.collection.mutable.ArrayBuffer
 
-final private class InMemoryStagingArea[NodeId, LeafId, PathElement, Obj]
-    extends StagingArea[NodeId, LeafId, PathElement, Obj]:
+final private class InMemoryStagingArea[NodeId, LeafId, PathElement, Obj](using
+    CanEqual[PathElement, PathElement]
+) extends StagingArea[NodeId, LeafId, PathElement, Obj]:
     private val stagedList: ArrayBuffer[
       StagedObject[PathElement, RefTree[NodeId, LeafId, PathElement, Obj]]
     ] = ArrayBuffer()
@@ -14,7 +15,11 @@ final private class InMemoryStagingArea[NodeId, LeafId, PathElement, Obj]
           PathElement,
           RefTree[NodeId, LeafId, PathElement, Obj]
         ]
-    ): Unit = stagedList.addOne(obj)
+    ): Unit =
+        stagedList.filterInPlace(o =>
+            !obj.path.contains(o.path) && !o.path.contains(obj.path)
+        )
+        stagedList.addOne(obj)
 
     override def staged: Seq[
       StagedObject[PathElement, RefTree[NodeId, LeafId, PathElement, Obj]]

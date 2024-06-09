@@ -8,7 +8,9 @@ import nyub.orthogit.reftree.{RefLeaf, RefNode, RefTree, ValueLeaf, ValueNode}
 import nyub.orthogit.reftree.{compress, insert}
 import nyub.orthogit.reftree.Ref
 
-trait Git[Obj, Id, Label, PathElement, Meta]:
+trait Git[Obj, Id, Label, PathElement, Meta](using
+    CanEqual[PathElement, PathElement]
+):
     opaque type BlobId = Id
     opaque type CommitId = Id
     opaque type TreeId = Id
@@ -26,9 +28,10 @@ trait Git[Obj, Id, Label, PathElement, Meta]:
 
     protected def currentBranch: Head[Label]
 
-    /** @todo extract agnostic interface and delegate to trait implementers */
+    /** @todo delegate to trait implementers */
     final private val stagingArea
-        : StagingArea[TreeId, BlobId, PathElement, Obj] = InMemoryStagingArea()
+        : StagingArea[TreeId, BlobId, PathElement, Obj] =
+        InMemoryStagingArea[TreeId, BlobId, PathElement, Obj]()
 
     /** Stages `obj`, adding it to the bulk of objects that would be part of a
       * [[Git.commit]]. If there is already a staged object at this path, it

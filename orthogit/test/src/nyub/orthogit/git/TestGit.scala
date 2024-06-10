@@ -13,11 +13,15 @@ type TestId = Sha1Id
 type TestLabel = String
 type TestMeta = String
 
-class TestGit extends Git[TestObj, TestId, TestLabel, TestPath, TestMeta]:
+class TestGit
+    extends Git[TestObj, TestId, TestLabel, TestPath, TestMeta]
+    with Staging[TestObj, TestId, TestLabel, TestPath, TestMeta]:
     override protected val currentBranch: Head[TestLabel] =
         MutableOption[TestLabel]
 
-    override protected val head: Head[TestId] = MutableOption[TestId]
+    override protected val head: Head[this.CommitId] =
+        MutableOption[this.CommitId]
+
     override protected val labelStorage: LabelStorage[String, Sha1Id] =
         LabelStorage.InMemory()
 
@@ -30,6 +34,11 @@ class TestGit extends Git[TestObj, TestId, TestLabel, TestPath, TestMeta]:
     override protected val stagingArea
         : StagingArea[TreeId, BlobId, TestPath, TestObj] =
         StagingArea.InMemory[TreeId, BlobId, TestPath, TestObj]()
+
+    override protected def onCheckout(
+        from: Option[CommitId],
+        to: CommitId
+    ): Unit = stagingArea.clear()
 
     private class MutableOption[T] extends Head[T]:
         private var headPointer: Option[T] = None

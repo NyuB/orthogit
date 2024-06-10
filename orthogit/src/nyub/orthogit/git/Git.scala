@@ -5,8 +5,6 @@ import nyub.orthogit.git.StoredObjects.Blob
 import nyub.orthogit.git.StoredObjects.Tree
 import nyub.orthogit.git.StoredObjects.Commit
 import nyub.orthogit.reftree.{RefLeaf, RefNode, RefTree, ValueLeaf, ValueNode}
-import nyub.orthogit.reftree.{compress, insert}
-import nyub.orthogit.reftree.Ref
 
 trait Git[Obj, Id, Label, PathElement, Meta](using
     CanEqual[PathElement, PathElement]
@@ -24,70 +22,11 @@ trait Git[Obj, Id, Label, PathElement, Meta](using
 
     protected def labelStorage: LabelStorage[Label, Id]
 
-    protected def head: Head[Id]
+    protected def head: Head[CommitId]
 
     protected def currentBranch: Head[Label]
 
-    protected def stagingArea: StagingArea[TreeId, BlobId, PathElement, Obj]
-
-    /** Stages `obj`, adding it to the bulk of objects that would be part of a
-      * [[Git.commit]]. If there is already a staged object at this path, it
-      * will be replaced. If there is no staged object at this path, it will be
-      * created.
-      * @param obj
-      *   a path and the data to update at this path
-      */
-    def add(stagedObject: StagedObject[PathElement, Obj]): Unit =
-        stagingArea.add(stagedObject.map(ValueLeaf(_)))
-
-    /** Creates a new commit from the updates of the staging area.
-      *
-      * Additional side effects:
-      *   - Clears the staging area
-      *   - Updates the current branch to point to the created commit
-      *   - Updates the current head to point to the created commit
-      * @param meta
-      *   the metadata to associate with this commit
-      * @return
-      *   the id of the created commit
-      * @see
-      *   [[Git.add]] to stage objects before committing
-      */
-    def commit(meta: Meta): CommitId =
-        val currentTree = headTreeId.map(TreeRef(_)).getOrElse(Tree(Map.empty))
-        val updated = stagingArea.staged.foldLeft(currentTree): (t, s) =>
-            t.insert(s.path.name, s.path.path, s.obj, getTreeChildren)
-        val treeId = updated.compress(
-          o => objectStorage.store(StoredObjects.Blob(o)),
-          t =>
-              objectStorage.store(
-                StoredObjects.Tree(t.view.mapValues(_.id).toMap)
-              )
-        )
-
-        val commitId = objectStorage.store(
-          StoredObjects.Commit(
-            head.get.toList,
-            treeId,
-            meta
-          )
-        )
-
-        head.set(Some(commitId))
-        updateBranch(commitId)
-        stagingArea.clear()
-        commitId
-
-    private def getTreeChildren(
-        id: TreeId
-    ): Map[PathElement, Ref[TreeId, BlobId]] =
-        getTree(id).children.view
-            .mapValues:
-                case b: Blob    => BlobRef(writeBlob(b))
-                case b: BlobRef => b
-                case Tree(c)    => TreeRef(writeTree(Tree(c.toMap)))
-                case t: TreeRef => t
-            .toMap
+    protected def onCheckout(from: Option[CommitId], to: CommitId): Unit
 
     /** Stores a new commit object
       * @param commit
@@ -189,14 +128,13 @@ trait Git[Obj, Id, Label, PathElement, Meta](using
     /** Positions the current head at the commit indicated by `commitId`
       *
       * Additional side effects:
-      *   - Clears the staging area
       *   - Unsets the current branch if any ('detached HEAD')
       * @param commitId
       *   id of the commit to move to
       */
     def checkout(commitId: CommitId): Unit = objectStorage.get(commitId) match
         case Some(StoredObjects.Commit(_, treeId, _)) =>
-            stagingArea.clear()
+            onCheckout(head.get, commitId)
             currentBranch.unset() // detached HEAD
             head.set(Some(commitId))
         case _ => ???
@@ -245,11 +183,6 @@ trait Git[Obj, Id, Label, PathElement, Meta](using
     def getObject(objectPath: ObjectPath[PathElement]): Option[Obj] =
         get(getHeadTree, objectPath)
 
-    /** @return
-      *   all paths leading to objects staged for update
-      */
-    def staged: Seq[ObjectPath[PathElement]] = stagingArea.staged.map(_.path)
-
     private def get(
         tree: StoredObjects.Tree[Id, PathElement],
         objectPath: ObjectPath[PathElement]
@@ -268,7 +201,7 @@ trait Git[Obj, Id, Label, PathElement, Meta](using
                     case StoredObjects.Tree(c) => StoredObjects.Tree(c.toMap)
                 .flatMap(t => get(t, objectPath.tail))
 
-    private def headTreeId: Option[Id] =
+    final protected def headTreeId: Option[TreeId] =
         head.get
             .flatMap(objectStorage.get)
             .collect:
@@ -282,9 +215,10 @@ trait Git[Obj, Id, Label, PathElement, Meta](using
                 case StoredObjects.Tree(c) => StoredObjects.Tree(c.toMap)
             .getOrElse(?!!)
 
-    private def updateBranch(commitId: CommitId): Unit = currentBranch.get match
-        case Some(label) => labelStorage.set(label, commitId)
-        case None        => ()
+    final protected def updateBranch(commitId: CommitId): Unit =
+        currentBranch.get match
+            case Some(label) => labelStorage.set(label, commitId)
+            case None        => ()
 
     private def ?!! = throw IllegalStateException(
       "Panic, reached illegal state"

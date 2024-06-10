@@ -2,12 +2,11 @@ package nyub.orthogit.git
 
 import nyub.assert.AssertExtensions
 import nyub.assert.PropertiesExtensions
+import nyub.assert.generators.{TreeGen, TreeGenLeaf, TreeGenNode}
+import nyub.orthogit.reftree.{expand, ValueLeaf, ValueNode}
 import org.scalacheck.Arbitrary
 import org.scalacheck.Gen
 import org.scalacheck.Prop.forAll
-import nyub.assert.generators.{TreeGen, TreeGenLeaf, TreeGenNode}
-import nyub.orthogit.reftree.ValueNode
-import nyub.orthogit.reftree.ValueLeaf
 
 class GitProperties
     extends munit.ScalaCheckSuite
@@ -65,14 +64,25 @@ class GitProperties
 
     extension (git: TestGit)
         private def materializeTree(tree: git.Tree): git.Tree =
-            val materializedChildren = tree.children.view
+            tree.expand(
+              id => git.getBlob(id).value,
+              t => git.getTreeChildrenIds(t)
+            )
+
+        private def getTreeChildrenIds(
+            id: git.TreeId
+        ) =
+            git.getTree(id)
+                .children
+                .view
                 .mapValues:
-                    case b: git.Blob     => b
-                    case git.BlobRef(id) => git.getBlob(id)
-                    case t: git.Tree     => git.materializeTree(t)
-                    case git.TreeRef(id) => git.materializeTree(git.getTree(id))
+                    case b: git.BlobRef => b
+                    case t: git.TreeRef => t
+                    case _ =>
+                        throw IllegalStateException(
+                          "Did not expect anything not stored yet"
+                        )
                 .toMap
-            git.Tree(materializedChildren)
 
     private def gitTreeOfTreeGen(
         gen: TreeGenNode[String, String]

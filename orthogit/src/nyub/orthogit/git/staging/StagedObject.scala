@@ -1,4 +1,6 @@
-package nyub.orthogit.git
+package nyub.orthogit.git.staging
+
+import nyub.orthogit.git.ObjectPath
 
 case class StagedObject[+PathElement, +Obj](
     val path: ObjectPath[PathElement],

@@ -4,6 +4,7 @@ import nyub.assert.AssertExtensions
 import scala.annotation
 import munit.diff.Printer
 import nyub.orthogit.id.Sha1
+import staging.StagedObject
 
 @annotation.nowarn("msg=unused value")
 class GitSuite extends munit.FunSuite with AssertExtensions:

@@ -6,6 +6,7 @@ import nyub.orthogit.storage.ObjectStorage
 import nyub.orthogit.id.Sha1.Sha1Id
 import nyub.orthogit.id.Identifier
 import nyub.orthogit.id.Sha1.deriveSha1Identifier
+import staging.{Staging, StagingArea}
 
 type TestObj = String
 type TestPath = String
@@ -33,7 +34,7 @@ class TestGit
 
     override protected val stagingArea
         : StagingArea[TreeId, BlobId, TestPath, TestObj] =
-        StagingArea.InMemory[TreeId, BlobId, TestPath, TestObj]()
+        staging.StagingArea.InMemory[TreeId, BlobId, TestPath, TestObj]()
 
     override protected def onCheckout(
         from: Option[CommitId],

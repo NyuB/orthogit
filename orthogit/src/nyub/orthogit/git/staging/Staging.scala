@@ -1,9 +1,11 @@
-package nyub.orthogit.git
+package nyub.orthogit.git.staging
 
 import nyub.orthogit.reftree.ValueLeaf
 import nyub.orthogit.reftree.insert
 import nyub.orthogit.reftree.Ref
 import nyub.orthogit.reftree.compress
+import nyub.orthogit.git.Git
+import nyub.orthogit.git.ObjectPath
 
 trait Staging[Obj, Id, Label, PathElement, Meta](using
     CanEqual[PathElement, PathElement]

@@ -1,4 +1,4 @@
-package nyub.orthogit.git
+package nyub.orthogit.git.staging
 
 import nyub.orthogit.reftree.RefTree
 import scala.collection.mutable.ArrayBuffer

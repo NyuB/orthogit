@@ -7,6 +7,7 @@ import nyub.orthogit.id.Sha1.Sha1Id
 import nyub.orthogit.id.Identifier
 import nyub.orthogit.id.Sha1.deriveSha1Identifier
 import staging.{Staging, StagingArea}
+import nyub.orthogit.git.branching.Branching
 
 type TestObj = String
 type TestPath = String
@@ -15,15 +16,16 @@ type TestLabel = String
 type TestMeta = String
 
 class TestGit
-    extends Git[TestObj, TestId, TestLabel, TestPath, TestMeta]
-    with Staging[TestObj, TestId, TestLabel, TestPath, TestMeta]:
+    extends Git[TestObj, TestId, TestPath, TestMeta]
+    with Staging[TestObj, TestId, TestPath, TestMeta]
+    with Branching[TestObj, TestId, TestLabel, TestPath, TestMeta]:
     override protected val currentBranch: Head[TestLabel] =
         MutableOption[TestLabel]
 
     override protected val head: Head[this.CommitId] =
         MutableOption[this.CommitId]
 
-    override protected val labelStorage: LabelStorage[String, Sha1Id] =
+    override protected val labelStorage: LabelStorage[String, CommitId] =
         LabelStorage.InMemory()
 
     override protected val objectStorage: ObjectStorage[
@@ -39,7 +41,13 @@ class TestGit
     override protected def onCheckout(
         from: Option[CommitId],
         to: CommitId
-    ): Unit = stagingArea.clear()
+    ): Unit =
+        stagingArea.clear()
+        currentBranch.unset()
+
+    override protected def onCommit(commitId: CommitId): Unit = updateBranch(
+      commitId
+    )
 
     private class MutableOption[T] extends Head[T]:
         private var headPointer: Option[T] = None

@@ -7,13 +7,15 @@ import nyub.orthogit.reftree.compress
 import nyub.orthogit.git.Git
 import nyub.orthogit.git.ObjectPath
 
-trait Staging[Obj, Id, Label, PathElement, Meta](using
+trait Staging[Obj, Id, PathElement, Meta](using
     CanEqual[PathElement, PathElement]
 ):
-    git: Git[Obj, Id, Label, PathElement, Meta] =>
+    git: Git[Obj, Id, PathElement, Meta] =>
 
     protected def stagingArea
         : StagingArea[git.TreeId, git.BlobId, PathElement, Obj]
+
+    protected def onCommit(commitId: git.CommitId): Unit
 
     /** Stages `obj`, adding it to the bulk of objects that would be part of a
       * [[Staging.commit]]. If there is already a staged object at this path, it
@@ -22,7 +24,7 @@ trait Staging[Obj, Id, Label, PathElement, Meta](using
       * @param obj
       *   a path and the data to update at this path
       */
-    def add(stagedObject: StagedObject[PathElement, Obj]): Unit =
+    final def add(stagedObject: StagedObject[PathElement, Obj]): Unit =
         stagingArea.add(stagedObject.map(ValueLeaf(_)))
 
     /** Creates a new commit from the updates of the staging area.
@@ -38,7 +40,7 @@ trait Staging[Obj, Id, Label, PathElement, Meta](using
       * @see
       *   [[Staging.add]] to stage objects before committing
       */
-    def commit(meta: Meta): CommitId =
+    final def commit(meta: Meta): CommitId =
         val currentTree = headTreeId.map(TreeRef(_)).getOrElse(Tree(Map.empty))
         val updated = stagingArea.staged.foldLeft(currentTree): (t, s) =>
             t.insert(s.path.name, s.path.path, s.obj, getTreeChildren)
@@ -48,16 +50,16 @@ trait Staging[Obj, Id, Label, PathElement, Meta](using
         )
 
         val commitId = writeCommit(Commit(head.get.toList, treeId, meta))
-
         head.set(Some(commitId))
-        updateBranch(commitId)
+        onCommit(commitId)
         stagingArea.clear()
         commitId
 
     /** @return
       *   all paths leading to objects staged for update
       */
-    def staged: Seq[ObjectPath[PathElement]] = stagingArea.staged.map(_.path)
+    final def staged: Seq[ObjectPath[PathElement]] =
+        stagingArea.staged.map(_.path)
 
     private def getTreeChildren(
         id: git.TreeId

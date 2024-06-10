@@ -1,12 +1,12 @@
 package nyub.orthogit.git
 
-import nyub.orthogit.storage.{LabelStorage, ObjectStorage}
+import nyub.orthogit.storage.ObjectStorage
 import nyub.orthogit.git.StoredObjects.Blob
 import nyub.orthogit.git.StoredObjects.Tree
 import nyub.orthogit.git.StoredObjects.Commit
 import nyub.orthogit.reftree.{RefLeaf, RefNode, RefTree, ValueLeaf, ValueNode}
 
-trait Git[Obj, Id, Label, PathElement, Meta](using
+trait Git[Obj, Id, PathElement, Meta](using
     CanEqual[PathElement, PathElement]
 ):
     opaque type BlobId = Id
@@ -20,11 +20,7 @@ trait Git[Obj, Id, Label, PathElement, Meta](using
     protected def objectStorage
         : ObjectStorage[StoredObjects[Obj, Id, PathElement, Meta], Id]
 
-    protected def labelStorage: LabelStorage[Label, Id]
-
     protected def head: Head[CommitId]
-
-    protected def currentBranch: Head[Label]
 
     protected def onCheckout(from: Option[CommitId], to: CommitId): Unit
 
@@ -127,47 +123,15 @@ trait Git[Obj, Id, Label, PathElement, Meta](using
 
     /** Positions the current head at the commit indicated by `commitId`
       *
-      * Additional side effects:
-      *   - Unsets the current branch if any ('detached HEAD')
       * @param commitId
       *   id of the commit to move to
       */
-    def checkout(commitId: CommitId): Unit = objectStorage.get(commitId) match
-        case Some(StoredObjects.Commit(_, treeId, _)) =>
-            onCheckout(head.get, commitId)
-            currentBranch.unset() // detached HEAD
-            head.set(Some(commitId))
-        case _ => ???
-
-    /** [[Git.checkout]] to the commit indicated by `label` and positions the
-      * current branch to `label`
-      *
-      * @param label
-      *   label of the branch to go to
-      * @return
-      *   the head commit id after checkout
-      */
-    def checkoutLabel(label: Label): CommitId =
-        labelStorage.get(label) match
-            case Some(id) =>
-                objectStorage.get(id) match
-                    case Some(StoredObjects.Commit(_, _, _)) =>
-                        checkout(id)
-                        currentBranch.set(Some(label))
-                        id
-                    case _ => ?!!
-            case None => ???
-
-    /** Makes the branch with name `label` point to commit `commitId`.
-      *
-      * @param name
-      *   label of the branch. If it did not exist it is created, if it existed
-      *   it is updated.
-      * @param commitId
-      *   commit id to point to
-      */
-    def branch(name: Label, commitId: CommitId): Unit =
-        labelStorage.set(name, commitId)
+    final def checkout(commitId: CommitId): Unit =
+        objectStorage.get(commitId) match
+            case Some(StoredObjects.Commit(_, treeId, _)) =>
+                onCheckout(head.get, commitId)
+                head.set(Some(commitId))
+            case _ => ???
 
     /** Retrieves the object stored at path `objectPath` in the current head's
       * tree, if any.
@@ -180,7 +144,7 @@ trait Git[Obj, Id, Label, PathElement, Meta](using
       *   - There is no object at this path in the current tree
       *   - The current head is not pointing to any commit
       */
-    def getObject(objectPath: ObjectPath[PathElement]): Option[Obj] =
+    final def getObject(objectPath: ObjectPath[PathElement]): Option[Obj] =
         get(getHeadTree, objectPath)
 
     private def get(
@@ -214,11 +178,6 @@ trait Git[Obj, Id, Label, PathElement, Meta](using
             .collect:
                 case StoredObjects.Tree(c) => StoredObjects.Tree(c.toMap)
             .getOrElse(?!!)
-
-    final protected def updateBranch(commitId: CommitId): Unit =
-        currentBranch.get match
-            case Some(label) => labelStorage.set(label, commitId)
-            case None        => ()
 
     private def ?!! = throw IllegalStateException(
       "Panic, reached illegal state"

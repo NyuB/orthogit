@@ -16,7 +16,7 @@ type TestLabel = String
 type TestMeta = String
 
 object TestGit:
-    trait Core extends Git[TestObj, TestId, TestPath, TestMeta]:
+    class Core extends Git[TestObj, TestId, TestPath, TestMeta]:
         final override protected val head: Head[this.CommitId] =
             MutableOption[this.CommitId]
 
@@ -25,6 +25,11 @@ object TestGit:
           Sha1Id
         ] =
             ObjectStorage.InMemory(using TestIdentifier)()
+
+        override protected def onCheckout(
+            from: Option[CommitId],
+            to: CommitId
+        ): Unit = ()
 
     trait Staging
         extends nyub.orthogit.git.staging.Staging[

@@ -24,6 +24,22 @@ trait Git[Obj, Id, PathElement, Meta](using
 
     protected def onCheckout(from: Option[CommitId], to: CommitId): Unit
 
+    /** Commit the current tree with the current head as parent commit and set
+      * head to the newly created commit
+      *
+      * @param tree
+      *   the tree to associate with the commit
+      * @param metadata
+      *   the metadata to associate with the commit
+      * @return
+      *   the newly created commit's id
+      */
+    def commit(tree: Tree, metadata: Meta): CommitId =
+        val treeId = writeTree(tree)
+        val commitId = writeCommit(Commit(head.get.toList, treeId, metadata))
+        checkout(commitId)
+        commitId
+
     /** Stores a new commit object
       * @param commit
       *   the commit object to create

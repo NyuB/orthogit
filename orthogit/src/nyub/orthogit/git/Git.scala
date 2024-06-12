@@ -163,6 +163,35 @@ trait Git[Obj, Id, PathElement, Meta](using
     final def getObject(objectPath: ObjectPath[PathElement]): Option[Obj] =
         get(getHeadTree, objectPath)
 
+    /** Get the commit history as a linear sequence of commit ids starting from
+      * the current head until there is no more parent commit
+      *
+      * If a commit has multiple parents the first one is chosen
+      *
+      * @return
+      *   the commit history starting from the current head
+      */
+    final def log: Seq[CommitId] =
+        head.get.map(log(_)).getOrElse(Seq.empty)
+
+    /** Get the commit history as a linear sequence of commit ids starting from
+      * `commitId` until there is no more parent commit
+      *
+      * If a commit has multiple parents the first one is chosen
+      *
+      * @param commitId
+      *   the start commit to log history from
+      * @return
+      *   the commit history starting from a given commitId
+      */
+    final def log(commitId: CommitId): Seq[CommitId] =
+        log(commitId, List(commitId))
+
+    private def log(commitId: CommitId, acc: List[CommitId]): Seq[CommitId] =
+        getCommit(commitId).parentIds match
+            case Nil        => acc.reverse
+            case first :: _ => log(first, first :: acc)
+
     private def get(
         tree: StoredObjects.Tree[Id, PathElement],
         objectPath: ObjectPath[PathElement]

@@ -70,6 +70,46 @@ trait GitSuite[Obj, Id, PathElement, Meta](using
           Map(somePath -> git.BlobRef(blobId))
         )
 
+    test("log is empty when head points to no commit"):
+        val git = initializeGit()
+        git.log isEqualTo Seq.empty
+
+    test("after writing one commit, log first element is the commit id"):
+        val git = initializeGit()
+        val commitId = git.commit(git.Tree(Map.empty), someMetadata)
+        git.log isEqualTo Seq(commitId)
+
+    test(
+      "after writing two commits, log first element is the last commit id and second element is the first commit id"
+    ):
+        val git = initializeGit()
+        val firstCommitId = git.commit(git.Tree(Map.empty), someMetadata)
+        val secondCommitId = git.commit(git.Tree(Map.empty), someMetadata)
+        git.log isEqualTo Seq(secondCommitId, firstCommitId)
+
+    test(
+      "after writing one commit with two parents, log second element is the first parent"
+    ):
+        val git = initializeGit()
+
+        val oneTreeId = git.writeTree(git.Tree(Map.empty))
+        val secondTreeId =
+            git.writeTree(git.Tree(Map(somePath -> git.TreeRef(oneTreeId))))
+
+        val firstCommitId =
+            git.writeCommit(git.Commit(Seq.empty, oneTreeId, someMetadata))
+        val secondCommitId =
+            git.writeCommit(git.Commit(Seq.empty, secondTreeId, someMetadata))
+        val thirdCommitId = git.writeCommit(
+          git.Commit(
+            Seq(firstCommitId, secondCommitId),
+            secondTreeId,
+            someMetadata
+          )
+        )
+
+        git.log(thirdCommitId) isEqualTo Seq(thirdCommitId, firstCommitId)
+
 end GitSuite
 
 class TestGitSuite

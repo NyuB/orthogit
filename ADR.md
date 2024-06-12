@@ -6,6 +6,13 @@ It should be able to reproduce the 'Real Git' implementation as one possible com
 ## Vocabulary
 - 'Real Git' informal designation of the famous git program to distinguish from the components built in this project
 
+## 12/06/2024
+- Detached staging and branching from the core of git implementation
+- Head behaviour (with auto update on commit etc) is still to detach too
+- Use a generic data structure "Ref tree" for staging and interaction with git API
+  + May not be the better structure
+- Define Git tests as generic to ease other implementations
+
 ## 02/06/2024
 ### State of the project
 We design Git as a versioning system for tree-like data structure with the following fundamentals types:

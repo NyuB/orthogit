@@ -224,6 +224,15 @@ trait Git[Obj, Id, PathElement, Meta](using
                 case StoredObjects.Tree(c) => StoredObjects.Tree(c.toMap)
             .getOrElse(?!!)
 
+    extension (id: Id)
+        final protected def asCommitId: Option[CommitId] =
+            objectStorage
+                .get(id)
+                .collect:
+                    case StoredObjects.Commit(_, _, _) => id
+
+    extension (commitId: CommitId) final def asId: Id = commitId
+
     private def ?!! = throw IllegalStateException(
       "Panic, reached illegal state"
     )

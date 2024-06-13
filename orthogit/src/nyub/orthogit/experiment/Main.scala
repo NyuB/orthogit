@@ -3,6 +3,8 @@ package nyub.orthogit.experiment
 import java.nio.file.Paths
 import java.nio.charset.StandardCharsets
 import java.io.FileOutputStream
+import nyub.orthogit.real.RealGit
+import nyub.orthogit.id.Sha1.hex
 
 @main def main(args: String*): Unit =
     val cmd = args(0)
@@ -18,4 +20,10 @@ import java.io.FileOutputStream
             fos.write(content)
             fos.flush()
             fos.close()
-    else println(s"Invalid command ${cmd}, supported commands are {unzip}")
+    else if cmd == "log" then
+        val git = RealGit(Paths.get(".git"))
+        git.log
+            .map(id => id -> git.getCommit(id).meta)
+            .map((id, msg) => s"${id.asId.hex}\n${msg}")
+            .foreach(println)
+    else println(s"Invalid command ${cmd}, supported commands are {unzip, log}")

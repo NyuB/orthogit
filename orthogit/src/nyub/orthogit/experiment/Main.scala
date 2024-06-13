@@ -24,6 +24,8 @@ import nyub.orthogit.id.Sha1.hex
         val git = RealGit(Paths.get(".git"))
         git.log
             .map(id => id -> git.getCommit(id).meta)
-            .map((id, msg) => s"${id.asId.hex}\n${msg}")
+            .map((id, meta) =>
+                s"${id.asId.hex}\n${meta.author}\n${meta.committer}\n${meta.message}"
+            )
             .foreach(println)
     else println(s"Invalid command ${cmd}, supported commands are {unzip, log}")

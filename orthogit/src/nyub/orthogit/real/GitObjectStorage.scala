@@ -13,13 +13,13 @@ import nyub.orthogit.git.StoredObjects.Commit
 
 class GitObjectStorage(gitRoot: Path)
     extends ObjectStorage[
-      StoredObjects[Seq[Byte], Sha1Id, String, String],
+      StoredObjects[Seq[Byte], Sha1Id, String, GitCommitMetadata],
       Sha1Id
     ]:
     private val objectRoot = gitRoot.resolve("objects")
     override def get(
         id: Sha1Id
-    ): Option[StoredObjects[Seq[Byte], Sha1Id, String, String]] =
+    ): Option[StoredObjects[Seq[Byte], Sha1Id, String, GitCommitMetadata]] =
         val hexRepr = id.hex
         val objectFile =
             objectRoot.resolve(hexRepr.take(2), hexRepr.substring(2))
@@ -35,7 +35,13 @@ class GitObjectStorage(gitRoot: Path)
                       committer,
                       message
                     ) =>
-                    Some(StoredObjects.Commit(parentIds, treeId, message))
+                    Some(
+                      StoredObjects.Commit(
+                        parentIds,
+                        treeId,
+                        GitCommitMetadata(author, committer, message)
+                      )
+                    )
                 case GitObject.Tree(children) =>
                     Some(
                       StoredObjects.Tree(
@@ -45,7 +51,7 @@ class GitObjectStorage(gitRoot: Path)
         else None
 
     override def store(
-        obj: StoredObjects[Seq[Byte], Sha1Id, String, String]
+        obj: StoredObjects[Seq[Byte], Sha1Id, String, GitCommitMetadata]
     ): Sha1Id =
         val content = obj match
             case Blob(obj) =>
@@ -63,9 +69,9 @@ class GitObjectStorage(gitRoot: Path)
                   GitObjectEncoding.GitObject.Commit(
                     treeId,
                     parentIds,
-                    fakeCommiterInfo("Author"),
-                    fakeCommiterInfo("Commiter"),
-                    metadata
+                    metadata.author,
+                    metadata.committer,
+                    metadata.message
                   )
                 )
 
@@ -75,11 +81,3 @@ class GitObjectStorage(gitRoot: Path)
             objectRoot.resolve(hexRepr.take(2), hexRepr.substring(2))
         Zlib.compressIntoFile(objectFile, content)
         id
-
-    private def fakeCommiterInfo(name: String) =
-        GitObjectEncoding.CommitterInfo(
-          name,
-          s"$name@gg.com",
-          0L,
-          "UTC"
-        )

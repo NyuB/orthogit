@@ -30,14 +30,10 @@ object GitObjectEncoding:
         case Tree(children: Seq[TreeEntry])
 
     case class TreeEntry(val mode: String, val path: String, val id: Sha1Id)
-    case class CommitterInfo(
-        val name: String,
-        val mail: String,
-        val timestamp: Long,
-        val timezone: String
-    ):
-        private[GitObjectEncoding] def encoded(prefix: String): Seq[Byte] =
-            s"${prefix}${name} <${mail}> ${timestamp} ${timezone}".unsafeWrapped :+ LF.toByte
+
+    extension (info: CommitterInfo)
+        def encoded(prefix: String): Seq[Byte] =
+            s"${prefix}${info.name} <${info.mail}> ${info.timestamp} ${info.timezone}".unsafeWrapped :+ LF.toByte
 
     def encode(obj: GitObject): Seq[Byte] = obj match
         case GitObject.Blob(content) =>

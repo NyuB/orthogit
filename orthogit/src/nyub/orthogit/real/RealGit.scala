@@ -11,12 +11,12 @@ import nyub.orthogit.storage.LabelStorage
 import java.nio.file.Files
 
 class RealGit(private val gitRoot: Path)
-    extends Git[Seq[Byte], Sha1Id, String, String]
-    with Branching[Seq[Byte], Sha1Id, String, String, String]:
+    extends Git[Seq[Byte], Sha1Id, String, GitCommitMetadata]
+    with Branching[Seq[Byte], Sha1Id, String, String, GitCommitMetadata]:
     override protected val head: Head[CommitId] = HeadRef()
     override protected def objectStorage: ObjectStorage[StoredObjects[Seq[
       Byte
-    ], Sha1Id, String, String], Sha1Id] =
+    ], Sha1Id, String, GitCommitMetadata], Sha1Id] =
         GitObjectStorage(gitRoot)
 
     override protected val currentBranch: Head[String] = BranchRef()

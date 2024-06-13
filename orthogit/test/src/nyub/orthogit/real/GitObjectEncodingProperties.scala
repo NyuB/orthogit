@@ -7,7 +7,7 @@ import org.scalacheck.Gen
 import scala.collection.immutable.ArraySeq
 import java.nio.charset.StandardCharsets
 
-import nyub.orthogit.real.GitObjectEncoding.{CommitterInfo, GitObject}
+import nyub.orthogit.real.GitObjectEncoding.GitObject
 import nyub.orthogit.id.Sha1
 import nyub.orthogit.id.Sha1.Sha1Id
 import nyub.assert.PropertiesExtensions

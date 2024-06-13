@@ -5,7 +5,7 @@ import scala.collection.immutable.ArraySeq
 import java.nio.file.Files
 import java.nio.file.Paths
 import nyub.orthogit.id.Sha1
-import nyub.orthogit.real.GitObjectEncoding.{CommitterInfo, GitObject}
+import nyub.orthogit.real.GitObjectEncoding.GitObject
 
 class GitObjectEncodingSuite extends munit.FunSuite with AssertExtensions:
     test("Decode blob object"):

@@ -29,7 +29,7 @@ import nyub.orthogit.reftree.ValueLeaf
         git.log
             .map(id => id -> git.getCommit(id).meta)
             .map((id, meta) =>
-                s"${id.asId.hex}\n${meta.author}\n${meta.committer}\n${meta.message}"
+                s"${id.hex}\n${meta.author}\n${meta.committer}\n${meta.message}"
             )
             .foreach(println)
     else if cmd == "show" then
@@ -44,8 +44,8 @@ def prettyPrint(git: RealGit, tree: git.Tree, tab: String = ""): Unit =
         r match
             case RefNode(id) =>
                 val subTree = git.getTree(id)
-                println(s"${tab}+ $p/${id.asId.hex}")
+                println(s"${tab}+ $p/${id.hex}")
                 prettyPrint(git, subTree, tab + "--")
-            case RefLeaf(id) => println(s"${tab}> ${p} (${id.asId.hex})")
+            case RefLeaf(id)         => println(s"${tab}> ${p} (${id.hex})")
             case ValueNode(children) => ???
             case ValueLeaf(value)    => ???

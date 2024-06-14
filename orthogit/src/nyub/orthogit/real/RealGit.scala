@@ -24,7 +24,7 @@ class RealGit(private val gitRoot: Path)
     override protected def labelStorage: LabelStorage[String, CommitId] =
         GitLabelStorage(gitRoot).map(
           _.asCommitId,
-          commitId => Some(commitId.asId)
+          commitId => Some(commitId)
         )
 
     override protected def onCheckout(

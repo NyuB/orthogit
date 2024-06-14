@@ -4,6 +4,7 @@ import org.scalacheck.Arbitrary
 import org.scalacheck.Gen
 import org.scalacheck.Prop.forAll
 import nyub.assert.AssertExtensions
+import nyub.orthogit.id.Sha1.Sha1Id
 
 class Sha1Properties extends munit.ScalaCheckSuite with AssertExtensions:
     property("Unique identifier"):
@@ -21,3 +22,6 @@ class Sha1Properties extends munit.ScalaCheckSuite with AssertExtensions:
             Sha1.ofHex(hexString).hex isEqualTo hexString.toLowerCase()
 
 end Sha1Properties
+
+object Sha1Properties:
+    def sha1Gen: Gen[Sha1Id] = Gen.stringOfN(40, Gen.hexChar).map(Sha1.ofHex)

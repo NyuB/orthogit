@@ -10,6 +10,8 @@ import nyub.orthogit.real.GitObjectEncoding.GitObject
 import nyub.orthogit.git.StoredObjects.Blob
 import nyub.orthogit.git.StoredObjects.Tree
 import nyub.orthogit.git.StoredObjects.Commit
+import nyub.orthogit.id.Sha1.Sha1Identifier
+import java.nio.file.Files
 
 class GitObjectStorage(gitRoot: Path)
     extends ObjectStorage[
@@ -75,9 +77,10 @@ class GitObjectStorage(gitRoot: Path)
                   )
                 )
 
-        val id = Sha1.ofBytes(content)
+        val id = Sha1Identifier.id(content.toArray)
         val hexRepr = id.hex
         val objectFile =
             objectRoot.resolve(hexRepr.take(2), hexRepr.substring(2))
+        Files.createDirectories(objectFile.getParent())
         Zlib.compressIntoFile(objectFile, content)
         id

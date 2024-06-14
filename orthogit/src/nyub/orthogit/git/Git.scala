@@ -5,6 +5,7 @@ import nyub.orthogit.git.StoredObjects.Blob
 import nyub.orthogit.git.StoredObjects.Tree
 import nyub.orthogit.git.StoredObjects.Commit
 import nyub.orthogit.reftree.{RefLeaf, RefNode, RefTree, ValueLeaf, ValueNode}
+import scala.annotation.targetName
 
 trait Git[Obj, Id, PathElement, Meta](using
     CanEqual[PathElement, PathElement]
@@ -231,7 +232,14 @@ trait Git[Obj, Id, PathElement, Meta](using
                 .collect:
                     case StoredObjects.Commit(_, _, _) => id
 
-    extension (commitId: CommitId) final def asId: Id = commitId
+    extension (commitId: CommitId)
+        @targetName("commitIdAsId") final def asId: Id = commitId
+
+    extension (treeId: TreeId)
+        @targetName("treeIdAsId") final def asId: Id = treeId
+
+    extension (blobId: BlobId)
+        @targetName("blobIdAsId") final def asId: Id = blobId
 
     private def ?!! = throw IllegalStateException(
       "Panic, reached illegal state"

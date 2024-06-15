@@ -32,7 +32,7 @@ extension [NodeId, LeafId, Edge, Leaf](t: Node[NodeId, LeafId, Edge, Leaf])
 extension [NodeId, LeafId, Edge, Leaf](node: Node[NodeId, LeafId, Edge, Leaf])
     def expand(
         expandLeaf: LeafId => Leaf,
-        expandNode: NodeId => Map[Edge, Ref[NodeId, LeafId]]
+        expandNode: NodeId => Map[Edge, RefTree[NodeId, LeafId, Edge, Leaf]]
     ): ValueNode[NodeId, LeafId, Edge, Leaf] =
         node match
             case RefNode(id) =>

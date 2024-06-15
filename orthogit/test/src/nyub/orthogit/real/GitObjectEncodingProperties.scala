@@ -41,7 +41,7 @@ class GitObjectEncodingProperties
         sha1Gen.flatMap: id =>
             Gen.nonEmptyStringOf(Gen.alphaNumChar)
                 .flatMap: path =>
-                    Gen.oneOf(Seq("40000", "100644"))
+                    Gen.oneOf(Seq(GitMode.File, GitMode.Directory))
                         .map: mode =>
                             GitObjectEncoding.TreeEntry(mode, path, id)
 

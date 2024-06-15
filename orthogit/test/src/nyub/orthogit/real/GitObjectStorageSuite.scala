@@ -28,8 +28,12 @@ class GitObjectStorageSuite extends munit.FunSuite with AssertExtensions:
         decodedTreeFile matches:
             case GitObject.Tree(children) =>
                 children isEqualTo Seq(
-                  GitObjectEncoding.TreeEntry("100644", "blob", blobId),
-                  GitObjectEncoding.TreeEntry("040000", "subTree", subTreeId)
+                  GitObjectEncoding.TreeEntry(GitMode.File, "blob", blobId),
+                  GitObjectEncoding.TreeEntry(
+                    GitMode.Directory,
+                    "subTree",
+                    subTreeId
+                  )
                 )
                 true
 

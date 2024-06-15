@@ -7,8 +7,6 @@ import java.nio.charset.StandardCharsets
 import scala.collection.mutable.ArrayBuffer
 
 object GitObjectEncoding:
-    val MODE_BLOB = "100644"
-    val MODE_TREE = "040000"
     private val BLOB_PREFIX = "blob "
     private val TREE_PREFIX = "tree "
     private val COMMIT_PREFIX = "commit "
@@ -31,7 +29,7 @@ object GitObjectEncoding:
 
         case Tree(children: Seq[TreeEntry])
 
-    case class TreeEntry(val mode: String, val path: String, val id: Sha1Id)
+    case class TreeEntry(val mode: GitMode, val path: String, val id: Sha1Id)
         derives CanEqual
 
     extension (info: CommitterInfo)
@@ -59,7 +57,7 @@ object GitObjectEncoding:
         case GitObject.Tree(children) =>
             val content = children
                 .flatMap: e =>
-                    e.mode.getBytes() ++ (SPACE.toByte +: e.path
+                    e.mode.repr.getBytes() ++ (SPACE.toByte +: e.path
                         .getBytes()) ++ (NUL.toByte +: e.id.bytes)
             s"${TREE_PREFIX}${content.size}${NUL}".unsafeWrapped ++ content
 
@@ -97,7 +95,7 @@ object GitObjectEncoding:
         val entries = ArrayBuffer[TreeEntry]()
         val index = ParsingIndex(content)
         while !index.over do
-            val mode = index.readUntilMarker(SPACE).utf8
+            val mode = index.readMode()
             val path = index.readUntilMarker(NUL).utf8
             val sha1 = index.readByteSha1()
             entries.addOne(
@@ -180,6 +178,16 @@ object GitObjectEncoding:
         def readUntilMarker(marker: Char): Seq[Byte] = readUntilMarker(
           marker.toByte
         )
+
+        def readMode(): GitMode =
+            val repr = readUntilMarker(SPACE).utf8
+            repr match
+                case GitMode.Directory.repr => GitMode.Directory
+                case GitMode.File.repr      => GitMode.File
+                case _ =>
+                    throw IllegalArgumentException(
+                      s"Expected a git mode, got ${repr}"
+                    )
 
         def readUntilMarker(marker: Byte): Seq[Byte] =
             val start = index

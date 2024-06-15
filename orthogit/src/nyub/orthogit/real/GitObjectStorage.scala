@@ -67,11 +67,11 @@ class GitObjectStorage(gitRoot: Path)
                         ) // FIXME mode should be part of the path element to avoid dealing with its logic at the storage level
                             .collect:
                                 case t: StoredObjects.Tree[?, ?] =>
-                                    GitObjectEncoding.MODE_TREE
+                                    GitMode.Directory
                                 case b: StoredObjects.Blob[?] =>
-                                    GitObjectEncoding.MODE_BLOB
+                                    GitMode.File
                             .getOrElse(
-                              GitObjectEncoding.MODE_BLOB
+                              GitMode.File
                             )
 
                         GitObjectEncoding.TreeEntry(mode, path, id)

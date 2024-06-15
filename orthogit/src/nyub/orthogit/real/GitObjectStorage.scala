@@ -61,8 +61,20 @@ class GitObjectStorage(gitRoot: Path)
             case Tree(childrenIds) =>
                 GitObjectEncoding.encode(
                   GitObjectEncoding.GitObject.Tree(
-                    childrenIds.toList.map(e =>
-                        GitObjectEncoding.TreeEntry("104", e._1, e._2)
+                    childrenIds.toList.map((path, id) =>
+                        val mode = get(
+                          id
+                        ) // FIXME mode should be part of the path element to avoid dealing with its logic at the storage level
+                            .collect:
+                                case t: StoredObjects.Tree[?, ?] =>
+                                    GitObjectEncoding.MODE_TREE
+                                case b: StoredObjects.Blob[?] =>
+                                    GitObjectEncoding.MODE_BLOB
+                            .getOrElse(
+                              GitObjectEncoding.MODE_BLOB
+                            )
+
+                        GitObjectEncoding.TreeEntry(mode, path, id)
                     )
                   )
                 )

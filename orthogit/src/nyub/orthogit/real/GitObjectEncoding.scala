@@ -7,6 +7,8 @@ import java.nio.charset.StandardCharsets
 import scala.collection.mutable.ArrayBuffer
 
 object GitObjectEncoding:
+    val MODE_BLOB = "100644"
+    val MODE_TREE = "040000"
     private val BLOB_PREFIX = "blob "
     private val TREE_PREFIX = "tree "
     private val COMMIT_PREFIX = "commit "
@@ -30,6 +32,7 @@ object GitObjectEncoding:
         case Tree(children: Seq[TreeEntry])
 
     case class TreeEntry(val mode: String, val path: String, val id: Sha1Id)
+        derives CanEqual
 
     extension (info: CommitterInfo)
         def encoded(prefix: String): Seq[Byte] =
@@ -67,7 +70,10 @@ object GitObjectEncoding:
             parseCommit(extractContent(bytes, COMMIT_PREFIX))
         else if bytes.startsWith(TREE_PREFIX) then
             parseTree(extractContent(bytes, TREE_PREFIX))
-        else ???
+        else
+            throw IllegalArgumentException(
+              s"Cannot decode bytes ${String(bytes.toArray)}"
+            )
 
     private def parseCommit(content: Seq[Byte]): GitObject.Commit =
         val parentIds = ArrayBuffer[Sha1Id]()

@@ -9,6 +9,7 @@ import java.nio.file.Path
 import nyub.orthogit.git.branching.Branching
 import nyub.orthogit.storage.LabelStorage
 import java.nio.file.Files
+import nyub.orthogit.id.Sha1
 
 class RealGit(private val gitRoot: Path)
     extends Git[Seq[Byte], Sha1Id, String, GitCommitMetadata]
@@ -30,21 +31,38 @@ class RealGit(private val gitRoot: Path)
     override protected def onCheckout(
         from: Option[CommitId],
         to: CommitId
-    ): Unit = println(s"Checked out ref ${to} from ref ${from}")
+    ): Unit = ()
 
     private class HeadRef extends Head[CommitId]:
         override def get: Option[CommitId] =
-            currentBranch.get.flatMap(labelStorage.get)
+            val headFile = gitRoot.resolve("HEAD")
+            if headFile.toFile().exists() then
+                val headContent = Files.readAllLines(headFile).get(0)
+                if headContent.startsWith("ref: ") then
+                    val ref = headContent.split("refs/heads/")(1)
+                    labelStorage.get(ref)
+                else
+                    val id = Sha1.ofHex(headContent)
+                    id.asCommitId
+            else None
 
-        override def set(id: Option[CommitId]): Unit =
-            throw UnsupportedOperationException("Read only")
+        override def set(id: Option[CommitId]): Unit = id match
+            case None => ()
+            case Some(sha1) =>
+                val headFile = gitRoot.resolve("HEAD")
+                Files.writeString(
+                  headFile,
+                  s"${sha1.hex}\n"
+                ): @annotation.nowarn("msg=discarded")
 
     private class BranchRef extends Head[String]:
         override def get: Option[String] =
             val headFile = gitRoot.resolve("HEAD")
-            val headContent =
-                Files.readAllLines(headFile).get(0).split("refs/heads/")(1)
-            Some(headContent)
+            if headFile.toFile().exists() then
+                val headContent =
+                    Files.readAllLines(headFile).get(0).split("refs/heads/")(1)
+                Some(headContent)
+            else None
 
         override def set(id: Option[String]): Unit =
             throw UnsupportedOperationException("Read only")

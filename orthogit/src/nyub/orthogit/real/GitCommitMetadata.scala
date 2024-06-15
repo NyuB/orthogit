@@ -4,4 +4,4 @@ case class GitCommitMetadata(
     val author: CommitterInfo,
     val committer: CommitterInfo,
     val message: String
-)
+) derives CanEqual

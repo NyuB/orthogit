@@ -17,7 +17,8 @@ trait SharedConfiguration extends ScalaModule {
           "-WunstableInlineAccessors",
           "-Wunused:all",
           "-Wvalue-discard",
-          "-Xlint:all"
+          "-Xlint:all",
+          "-Ysafe-init"
         )
 
     trait Tests extends ScalaTests with TestModule.Munit {

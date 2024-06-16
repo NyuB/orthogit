@@ -27,17 +27,17 @@ class GitObjectEncodingProperties
     property("decoding is the inverse of encoding"):
         GitObjectEncoding.decode isTheInverseOf GitObjectEncoding.encode
 
-    private val bytesGen: Gen[Seq[Byte]] = Gen.asciiStr.map(str =>
+    private def bytesGen: Gen[Seq[Byte]] = Gen.asciiStr.map(str =>
         ArraySeq.unsafeWrapArray(str.getBytes(StandardCharsets.UTF_8))
     )
 
-    private val blobGen: Gen[GitObject.Blob] =
+    private def blobGen: Gen[GitObject.Blob] =
         bytesGen.map(GitObject.Blob(_))
 
-    private val sha1Gen: Gen[Sha1Id] =
+    private def sha1Gen: Gen[Sha1Id] =
         Gen.stringOfN(40, Gen.hexChar).map(Sha1.ofHex)
 
-    private val treeEntryGen: Gen[GitObjectEncoding.TreeEntry] =
+    private def treeEntryGen: Gen[GitObjectEncoding.TreeEntry] =
         sha1Gen.flatMap: id =>
             Gen.nonEmptyStringOf(Gen.alphaNumChar)
                 .flatMap: path =>
@@ -45,22 +45,12 @@ class GitObjectEncodingProperties
                         .map: mode =>
                             GitObjectEncoding.TreeEntry(mode, path, id)
 
-    private val treeGen: Gen[GitObject.Tree] =
+    private def treeGen: Gen[GitObject.Tree] =
         Gen.listOf(treeEntryGen)
             .map: entries =>
                 GitObject.Tree(entries)
 
-    private val committerInfoGen: Gen[CommitterInfo] =
-        Gen.stringOf(Gen.alphaNumChar)
-            .filterNot(_.isBlank())
-            .flatMap: name =>
-                Gen.stringOf(Gen.alphaNumChar)
-                    .filterNot(_.isBlank())
-                    .flatMap: mail =>
-                        Gen.long.map: ts =>
-                            CommitterInfo(name, mail, ts, "+0000")
-
-    private val commitGen: Gen[GitObject.Commit] = Gen
+    private def commitGen: Gen[GitObject.Commit] = Gen
         .listOf(sha1Gen)
         .flatMap: parents =>
             sha1Gen.flatMap: treeId =>

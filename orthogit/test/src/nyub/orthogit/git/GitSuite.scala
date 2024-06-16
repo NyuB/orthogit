@@ -5,6 +5,7 @@ import munit.diff.Printer
 import nyub.orthogit.id.Sha1
 
 @annotation.nowarn("msg=unused value")
+@annotation.nowarn("msg=transitively initialized")
 trait GitSuite[Obj, Id, PathElement, Meta](using
     CanEqual[PathElement, PathElement],
     CanEqual[Obj, Obj],
